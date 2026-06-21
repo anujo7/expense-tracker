@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, CalendarDays, TrendingDown, TrendingUp } from 'lucide-react'
 import { SpentCard } from '../components/dashboard/SpentCard'
+import { InsightCard } from '../components/dashboard/InsightCard'
 import { BudgetCard } from '../components/dashboard/BudgetCard'
 import { ExpenseList } from '../components/expenses/ExpenseList'
 import { CardSkeleton, ListSkeleton } from '../components/ui/Skeleton'
@@ -13,10 +14,12 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
+  subMonths,
+  getDate,
 } from 'date-fns'
 
 export function DashboardPage() {
-  const now = new Date()
+  const now = useMemo(() => new Date(), [])
   const monthStart = startOfMonth(now).toISOString()
   const monthEnd = endOfMonth(now).toISOString()
 
@@ -24,11 +27,22 @@ export function DashboardPage() {
     startDate: monthStart,
     endDate: monthEnd,
   })
+  const lastMonthStart = startOfMonth(subMonths(now, 1)).toISOString()
+  const lastMonthEnd = endOfMonth(subMonths(now, 1)).toISOString()
+  const { expenses: lastMonthExpenses, loading: lastMonthLoading } = useExpenses({
+    startDate: lastMonthStart,
+    endDate: lastMonthEnd,
+  })
   const { budget, loading: budgetLoading } = useBudgets(getCurrentMonth())
 
   const totalThisMonth = useMemo(
     () => expenses.reduce((sum, e) => sum + e.amount, 0),
     [expenses]
+  )
+
+  const totalLastMonth = useMemo(
+    () => lastMonthExpenses.reduce((sum, e) => sum + e.amount, 0),
+    [lastMonthExpenses]
   )
 
   const totalThisWeek = useMemo(() => {
@@ -40,10 +54,20 @@ export function DashboardPage() {
         return d >= weekStart && d <= weekEnd
       })
       .reduce((sum, e) => sum + e.amount, 0)
-  }, [expenses])
+  }, [expenses, now])
+
+  const avgDailySpend = useMemo(() => {
+    const dayOfMonth = getDate(now)
+    return dayOfMonth > 0 ? totalThisMonth / dayOfMonth : 0
+  }, [totalThisMonth, now])
+
+  const momChange = useMemo(() => {
+    if (totalLastMonth === 0) return undefined
+    return ((totalThisMonth - totalLastMonth) / totalLastMonth) * 100
+  }, [totalThisMonth, totalLastMonth])
 
   const recentExpenses = expenses.slice(0, 15)
-  const loading = expLoading || budgetLoading
+  const loading = expLoading || budgetLoading || lastMonthLoading
 
   return (
     <div className="p-4 sm:p-8 max-w-2xl mx-auto space-y-6">
@@ -58,6 +82,10 @@ export function DashboardPage() {
             <CardSkeleton />
             <CardSkeleton />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
         </div>
       ) : (
         <>
@@ -65,6 +93,19 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 gap-4">
             <SpentCard total={totalThisMonth} label="This Month" />
             <SpentCard total={totalThisWeek} label="This Week" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <InsightCard
+              value={avgDailySpend}
+              label="Avg/day this month"
+              icon={<CalendarDays size={16} />}
+            />
+            <InsightCard
+              value={totalThisMonth}
+              label="vs last month"
+              change={momChange}
+              icon={momChange !== undefined && momChange >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+            />
           </div>
         </>
       )}

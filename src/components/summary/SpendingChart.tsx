@@ -1,3 +1,4 @@
+import { BarChart3 } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -7,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { EmptyState } from '../ui/EmptyState'
 import { formatINRCompact } from '../../utils/format'
 
 interface SpendingChartProps {
@@ -26,7 +28,13 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export function SpendingChart({ data, height = 250 }: SpendingChartProps) {
   if (data.length === 0) {
-    return <p className="text-sm text-gray-500 text-center py-6">No data to display</p>
+    return (
+      <EmptyState
+        title="No data to display"
+        subtitle="Add expenses to see your spending trend"
+        icon={<BarChart3 size={28} className="text-gray-500" />}
+      />
+    )
   }
 
   return (

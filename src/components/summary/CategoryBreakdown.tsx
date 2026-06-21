@@ -1,4 +1,6 @@
+import { PieChart } from 'lucide-react'
 import { CategoryIcon } from '../ui/CategoryIcon'
+import { EmptyState } from '../ui/EmptyState'
 import { formatINR } from '../../utils/format'
 import type { Category } from '../../types'
 
@@ -12,7 +14,13 @@ interface CategoryBreakdownProps {
 
 export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
   if (data.length === 0) {
-    return <p className="text-sm text-gray-500 text-center py-6">No spending data</p>
+    return (
+      <EmptyState
+        title="No spending data"
+        subtitle="Add expenses to see your category breakdown"
+        icon={<PieChart size={28} className="text-gray-500" />}
+      />
+    )
   }
 
   return (
