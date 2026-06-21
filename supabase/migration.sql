@@ -135,6 +135,7 @@ begin
     (new.id, 'Entertainment', '#8b5cf6', 'gamepad-2'),
     (new.id, 'Shopping', '#ec4899', 'shopping-bag'),
     (new.id, 'Health', '#10b981', 'heart-pulse'),
+    (new.id, 'Smokes', '#57534e', 'flame'),
     (new.id, 'Other', '#6b7280', 'ellipsis');
   return new;
 end;
