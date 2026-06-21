@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -66,9 +66,9 @@ interface UserAnalytics {
   projectedMonthEnd: number
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getAnalytics(
-  supabase: ReturnType<typeof createClient<any>>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
   userId: string
 ): Promise<UserAnalytics> {
   const yesterday = getDayRange(1)
@@ -114,7 +114,8 @@ async function getAnalytics(
 
   const monthExpenses = (monthRes.data || []) as { amount: number; expense_date: string }[]
   const monthTotal = monthExpenses.reduce((s, e) => s + e.amount, 0)
-  const monthBudget = (budgetRes.data as { total_budget: number } | null)?.total_budget ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const monthBudget = ((budgetRes.data as any)?.total_budget as number) ?? null
   const dailyAvgThisMonth = daysIntoCurMonth > 0 ? monthTotal / daysIntoCurMonth : 0
   const projectedMonthEnd = dailyAvgThisMonth * new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getUTCDate()
 
