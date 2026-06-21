@@ -16,18 +16,20 @@ export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 overflow-hidden">
       {data.map(({ category, amount, percentage }) => (
-        <div key={category.id} className="space-y-1.5">
-          <div className="flex items-center gap-3">
-            <CategoryIcon icon={category.icon} color={category.color} size={16} />
-            <span className="text-sm text-gray-300 flex-1">{category.name}</span>
-            <span className="text-sm font-medium text-white">{formatINR(amount)}</span>
-            <span className="text-xs text-gray-500 w-10 text-right">
+        <div key={category.id} className="space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="shrink-0">
+              <CategoryIcon icon={category.icon} color={category.color} size={16} />
+            </div>
+            <span className="text-sm text-gray-300 flex-1 truncate">{category.name}</span>
+            <span className="text-sm font-medium text-white shrink-0">{formatINR(amount)}</span>
+            <span className="text-xs text-gray-500 w-10 text-right shrink-0">
               {Math.round(percentage)}%
             </span>
           </div>
-          <div className="w-full h-1.5 bg-dark-border rounded-full overflow-hidden ml-9">
+          <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
