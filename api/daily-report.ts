@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import nodemailer from 'nodemailer'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -21,21 +22,46 @@ function formatINR(amount: number): string {
   return amount < 0 ? `-${result}` : result
 }
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000 // UTC+5:30
+
+function toIST(date: Date): Date {
+  return new Date(date.getTime() + IST_OFFSET_MS)
+}
+
 function getDayRange(daysAgo: number) {
-  const now = new Date()
-  const target = new Date(now)
-  target.setUTCDate(target.getUTCDate() - daysAgo)
-  const start = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), 0, 0, 0))
-  const end = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), 23, 59, 59, 999))
+  const nowIST = toIST(new Date())
+  const y = nowIST.getUTCFullYear()
+  const m = nowIST.getUTCMonth()
+  const d = nowIST.getUTCDate() - daysAgo
+  // Start/end in IST, converted back to UTC for Supabase query
+  const start = new Date(Date.UTC(y, m, d, 0, 0, 0) - IST_OFFSET_MS)
+  const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - IST_OFFSET_MS)
   return { start, end }
 }
 
 function getMonthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+  const ist = toIST(date)
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 async function sendEmail(to: string, subject: string, html: string) {
-  if (!resendApiKey) return { error: 'Resend API key not configured' }
+  const gmailUser = process.env.GMAIL_USER
+  const gmailPass = process.env.GMAIL_APP_PASSWORD
+
+  if (gmailUser && gmailPass) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass },
+    })
+    try {
+      await transporter.sendMail({ from: gmailUser, to, subject, html })
+      return { ok: true, status: 200 }
+    } catch (err) {
+      return { ok: false, status: 500, error: String(err) }
+    }
+  }
+
+  if (!resendApiKey) return { error: 'No email provider configured (set GMAIL_USER+GMAIL_APP_PASSWORD or RESEND_API_KEY)' }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
@@ -74,8 +100,9 @@ async function getAnalytics(
   const yesterday = getDayRange(1)
   const dayBefore = getDayRange(2)
   const now = new Date()
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-  const daysIntoCurMonth = now.getUTCDate()
+  const nowIST = toIST(now)
+  const monthStart = new Date(Date.UTC(nowIST.getUTCFullYear(), nowIST.getUTCMonth(), 1) - IST_OFFSET_MS)
+  const daysIntoCurMonth = nowIST.getUTCDate()
   const monthKey = getMonthKey(now)
 
   const [yesterdayRes, dayBeforeRes, monthRes, budgetRes] = await Promise.all([
@@ -492,11 +519,13 @@ export default async function handler(
   })
 
   const yesterday = getDayRange(1)
-  const dateLabel = yesterday.start.toLocaleDateString('en-IN', {
+  const yesterdayIST = toIST(yesterday.start)
+  const dateLabel = yesterdayIST.toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: 'UTC', // already shifted to IST manually
   })
 
   const { data: users, error: usersError } = await supabase.auth.admin.listUsers()
@@ -526,7 +555,8 @@ export default async function handler(
       const quote = pickQuote(analytics)
       const meme = await fetchMeme(analytics)
       const html = buildHtml(analytics, dateLabel, quote, meme)
-      const emailResult = await sendEmail(user.email, subject, html)
+      const sendTo = process.env.TEST_TO_EMAIL || user.email
+      const emailResult = await sendEmail(sendTo, subject, html)
       results.push({ email: user.email, spent: analytics.yesterdayTotal, ...emailResult })
     } catch (err) {
       results.push({ email: user.email, status: 'error', reason: String(err) })

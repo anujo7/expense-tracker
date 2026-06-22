@@ -8,16 +8,21 @@
 import { config } from 'dotenv'
 import { resolve } from 'path'
 
-const targetEmail = process.argv[2] || undefined
-if (targetEmail) process.env.TEST_EMAIL_OVERRIDE = targetEmail
-
+// Load .env FIRST before any module that reads process.env at import time
 config({ path: resolve(process.cwd(), '.env') })
 
-import handler from '../api/daily-report'
+const targetEmail = process.argv[2] || undefined   // Supabase user to fetch analytics for
+const sendToEmail = process.argv[3] || targetEmail  // actual recipient (override for Resend sandbox)
 
-if (targetEmail) {
-  console.log(`📧 Sending test email to: ${targetEmail}`)
+if (targetEmail) process.env.TEST_EMAIL_OVERRIDE = targetEmail
+if (sendToEmail) {
+  process.env.TEST_TO_EMAIL = sendToEmail
+  console.log(`📧 Fetching analytics for: ${targetEmail || 'all users'}`)
+  console.log(`📬 Sending email to:       ${sendToEmail}`)
 }
+
+// Dynamic import ensures handler sees the env vars already set above
+const { default: handler } = await import('../api/daily-report')
 
 const mockReq = { method: 'GET' }
 const mockRes = {
@@ -32,7 +37,4 @@ const mockRes = {
 }
 
 console.log('🚀 Running daily report handler...\n')
-handler(mockReq, mockRes).catch((err: unknown) => {
-  console.error('❌ Handler threw:', err)
-  process.exit(1)
-})
+await handler(mockReq, mockRes)
