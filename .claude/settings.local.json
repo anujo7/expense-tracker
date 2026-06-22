@@ -11,7 +11,15 @@
       "Bash(lsof -ti:5173)",
       "Bash(xargs kill)",
       "Bash(curl -s http://localhost:5173)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(npm list *)",
+      "Bash(npx uipro *)",
+      "Bash(uipro init *)",
+      "Bash(rm /Users/anujparashar/Personal/expense-app/.claude/skills)",
+      "Bash(mkdir -p /Users/anujparashar/Personal/expense-app/.claude/skills)"
     ]
   }
 }

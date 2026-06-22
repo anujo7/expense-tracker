@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 import { CategoryIcon } from '../ui/CategoryIcon'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -29,8 +30,8 @@ export function CategoryManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-white">Categories</h3>
-          <p className="text-sm text-gray-500">Manage your expense categories</p>
+          <h3 className="text-lg font-semibold text-white/90">Categories</h3>
+          <p className="text-sm text-white/30">Manage your expense categories</p>
         </div>
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <Plus size={16} />
@@ -39,32 +40,35 @@ export function CategoryManager() {
       </div>
 
       <div className="space-y-2">
-        {categories.map(cat => (
-          <div
+        {categories.map((cat, index) => (
+          <motion.div
             key={cat.id}
-            className="flex items-center gap-3 p-3.5 bg-dark-card rounded-xl border border-dark-border group"
+            className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.03] rounded-xl border border-white/[0.06] hover:bg-white/[0.06] transition-all duration-200 group"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.03 }}
           >
             <CategoryIcon icon={cat.icon} color={cat.color} size={18} />
-            <span className="text-sm font-medium text-white flex-1">{cat.name}</span>
+            <span className="text-sm font-medium text-white/90 flex-1">{cat.name}</span>
             <div
-              className="w-4 h-4 rounded-full border border-dark-border"
+              className="w-4 h-4 rounded-full border border-white/[0.08]"
               style={{ backgroundColor: cat.color }}
             />
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => setEditingCategory(cat)}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-dark-hover transition-colors"
+                className="p-1.5 rounded-lg text-white/30 hover:text-white/80 hover:bg-white/[0.05] transition-all duration-200"
               >
                 <Pencil size={14} />
               </button>
               <button
                 onClick={() => setDeletingCategory(cat)}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
               >
                 <Trash2 size={14} />
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 

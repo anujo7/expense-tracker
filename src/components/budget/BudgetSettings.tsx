@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { CategoryIcon } from '../ui/CategoryIcon'
@@ -57,12 +58,17 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-white mb-1">Budget for {getMonthLabel(currentMonth)}</h3>
-        <p className="text-sm text-gray-500 mb-4">Set your spending limits</p>
+        <h3 className="text-lg font-semibold text-white/90 mb-1">Budget for {getMonthLabel(currentMonth)}</h3>
+        <p className="text-sm text-white/30 mb-4">Set your spending limits</p>
       </div>
 
-      <div className="bg-dark-card border border-dark-border rounded-2xl p-5 space-y-4">
-        <h4 className="text-sm font-medium text-gray-300">Overall Monthly Budget</h4>
+      <motion.div
+        className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 space-y-4"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <h4 className="text-sm font-medium text-white/60">Overall Monthly Budget</h4>
         <div className="flex gap-3">
           <Input
             type="number"
@@ -76,10 +82,15 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
             Save
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="bg-dark-card border border-dark-border rounded-2xl p-5 space-y-4">
-        <h4 className="text-sm font-medium text-gray-300">Per-Category Budgets</h4>
+      <motion.div
+        className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 space-y-4"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+      >
+        <h4 className="text-sm font-medium text-white/60">Per-Category Budgets</h4>
         <div className="space-y-3">
           {categories.map(cat => {
             const catBudget = categoryBudgets.find(cb => cb.category_id === cat.id)
@@ -91,9 +102,9 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
               <div key={cat.id} className="space-y-2">
                 <div className="flex items-center gap-3">
                   <CategoryIcon icon={cat.icon} color={cat.color} size={16} />
-                  <span className="text-sm text-gray-300 flex-1">{cat.name}</span>
+                  <span className="text-sm text-white/60 flex-1">{cat.name}</span>
                   {budgetVal > 0 && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-white/30">
                       {formatINR(spent)} / {formatINR(budgetVal)}
                     </span>
                   )}
@@ -122,7 +133,7 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
             )
           })}
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

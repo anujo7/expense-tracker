@@ -11,6 +11,7 @@ import {
   format,
   isSameDay,
 } from 'date-fns'
+import { motion } from 'framer-motion'
 import { SpentCard } from '../components/dashboard/SpentCard'
 import { CategoryBreakdown } from '../components/summary/CategoryBreakdown'
 import { SpendingChart } from '../components/summary/SpendingChart'
@@ -96,18 +97,25 @@ export function SummaryPage() {
   const rangeLabel = range === 'week' ? 'This Week' : range === 'month' ? 'This Month' : 'This Year'
 
   return (
-    <div className="p-4 sm:p-8 max-w-2xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-white">Spending Summary</h1>
+    <motion.div
+      className="p-4 sm:p-8 max-w-2xl mx-auto space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/50">
+        Spending Summary
+      </h1>
 
-      <div className="flex bg-dark-card border border-dark-border rounded-xl p-1">
+      <div className="flex backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-xl p-1">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setRange(tab.key)}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
               range === tab.key
-                ? 'bg-accent text-white'
-                : 'text-gray-500 hover:text-gray-300'
+                ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/20'
+                : 'text-white/30 hover:text-white/60'
             }`}
           >
             {tab.label}
@@ -125,19 +133,29 @@ export function SummaryPage() {
         <>
           <SpentCard total={total} label={rangeLabel} />
 
-          <div className="bg-dark-card border border-dark-border rounded-2xl p-5">
-            <h3 className="text-sm font-medium text-gray-400 mb-4">
+          <motion.div
+            className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <h3 className="text-sm font-medium text-white/40 mb-4">
               {range === 'year' ? 'Monthly Trend' : 'Daily Spending'}
             </h3>
             <SpendingChart data={chartData} />
-          </div>
+          </motion.div>
 
-          <div className="bg-dark-card border border-dark-border rounded-2xl p-5">
-            <h3 className="text-sm font-medium text-gray-400 mb-4">Category Breakdown</h3>
+          <motion.div
+            className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <h3 className="text-sm font-medium text-white/40 mb-4">Category Breakdown</h3>
             <CategoryBreakdown data={categoryData} />
-          </div>
+          </motion.div>
         </>
       )}
-    </div>
+    </motion.div>
   )
 }

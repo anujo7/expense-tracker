@@ -19,10 +19,10 @@ export function Button({
   const base = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none'
 
   const variants = {
-    primary: 'bg-accent text-white hover:bg-accent-hover',
-    secondary: 'bg-dark-card text-gray-300 border border-dark-border hover:bg-dark-hover',
+    primary: 'bg-violet-500 text-white hover:bg-violet-400 shadow-lg shadow-violet-500/20',
+    secondary: 'backdrop-blur-xl bg-white/[0.05] text-white/70 border border-white/[0.08] hover:bg-white/[0.08] hover:text-white/90',
     danger: 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20',
-    ghost: 'text-gray-400 hover:text-white hover:bg-dark-hover',
+    ghost: 'text-white/40 hover:text-white/80 hover:bg-white/[0.05]',
   }
 
   const sizes = {

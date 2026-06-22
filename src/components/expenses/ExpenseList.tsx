@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { format, isSameDay, subDays } from 'date-fns'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 import { CategoryIcon } from '../ui/CategoryIcon'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
@@ -73,18 +74,21 @@ export function ExpenseList({ expenses, onUpdate }: ExpenseListProps) {
           return (
             <div key={dateKey}>
               <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                <span className="text-xs font-medium text-white/40 uppercase tracking-wide">
                   {getDayLabel(dateKey)}
                 </span>
-                <span className="text-xs font-medium text-gray-400">
+                <span className="text-xs font-medium text-white/40">
                   {formatINR(dayTotal)}
                 </span>
               </div>
               <div className="space-y-2">
-                {groupExpenses.map(expense => (
-                  <div
+                {groupExpenses.map((expense, index) => (
+                  <motion.div
                     key={expense.id}
-                    className="flex items-center gap-3 p-3.5 bg-dark-card rounded-xl border border-dark-border hover:border-gray-700 transition-colors group"
+                    className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.03] rounded-xl border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all duration-200 group"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.03 }}
                   >
                     <CategoryIcon
                       icon={expense.category?.icon || 'tag'}
@@ -94,35 +98,35 @@ export function ExpenseList({ expenses, onUpdate }: ExpenseListProps) {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium text-white truncate">
+                        <span className="text-sm font-medium text-white/90 truncate">
                           {expense.category?.name || 'Uncategorized'}
                         </span>
                         {expense.note && (
-                          <span className="text-xs text-gray-500 truncate">{expense.note}</span>
+                          <span className="text-xs text-white/30 truncate">{expense.note}</span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500">{formatTime(expense.expense_date)}</span>
+                      <span className="text-xs text-white/30">{formatTime(expense.expense_date)}</span>
                     </div>
 
-                    <span className="text-sm font-semibold text-white whitespace-nowrap">
+                    <span className="text-sm font-semibold text-white/90 whitespace-nowrap">
                       {formatINR(expense.amount)}
                     </span>
 
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => setEditingExpense(expense)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-dark-hover transition-colors"
+                        className="p-1.5 rounded-lg text-white/30 hover:text-white/80 hover:bg-white/[0.05] transition-all duration-200"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => setDeletingExpense(expense)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>

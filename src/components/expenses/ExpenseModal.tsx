@@ -78,7 +78,7 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
     <Modal isOpen={isOpen} onClose={onClose} title={expense ? 'Edit Expense' : 'Add Expense'}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">Amount (₹)</label>
+          <label className="block text-sm font-medium text-white/50 mb-1.5">Amount (₹)</label>
           <input
             type="number"
             inputMode="decimal"
@@ -86,27 +86,27 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
             placeholder="0.00"
             value={form.amount}
             onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-            className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-4 text-white text-2xl font-semibold placeholder-gray-600 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
+            className="w-full backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-4 text-white/90 text-2xl font-semibold placeholder-white/20 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 transition-all duration-200"
             autoFocus
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Category</label>
+          <label className="block text-sm font-medium text-white/50 mb-2">Category</label>
           <div className="grid grid-cols-4 gap-2">
             {categories.map(cat => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setForm(f => ({ ...f, category_id: cat.id }))}
-                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all ${
+                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all duration-200 ${
                   form.category_id === cat.id
-                    ? 'border-accent bg-accent/10'
-                    : 'border-dark-border hover:border-gray-600'
+                    ? 'border-violet-500/50 bg-violet-500/10'
+                    : 'border-white/[0.06] hover:border-white/[0.12]'
                 }`}
               >
                 <CategoryIcon icon={cat.icon} color={cat.color} size={18} />
-                <span className="text-[10px] text-gray-400 truncate w-full text-center">
+                <span className="text-[10px] text-white/40 truncate w-full text-center">
                   {cat.name}
                 </span>
               </button>

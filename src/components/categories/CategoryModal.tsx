@@ -67,14 +67,14 @@ export function CategoryModal({ isOpen, onClose, category }: CategoryModalProps)
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Color</label>
+          <label className="block text-sm font-medium text-white/50 mb-2">Color</label>
           <div className="flex flex-wrap gap-2">
             {CATEGORY_COLORS.map(color => (
               <button
                 key={color}
                 type="button"
                 onClick={() => setForm(f => ({ ...f, color }))}
-                className={`w-8 h-8 rounded-full border-2 transition-all ${
+                className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${
                   form.color === color ? 'border-white scale-110' : 'border-transparent'
                 }`}
                 style={{ backgroundColor: color }}
@@ -84,17 +84,17 @@ export function CategoryModal({ isOpen, onClose, category }: CategoryModalProps)
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Icon</label>
+          <label className="block text-sm font-medium text-white/50 mb-2">Icon</label>
           <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto">
             {CATEGORY_ICONS.map(icon => (
               <button
                 key={icon}
                 type="button"
                 onClick={() => setForm(f => ({ ...f, icon }))}
-                className={`flex items-center justify-center p-2 rounded-xl border transition-all ${
+                className={`flex items-center justify-center p-2 rounded-xl border transition-all duration-200 ${
                   form.icon === icon
-                    ? 'border-accent bg-accent/10'
-                    : 'border-dark-border hover:border-gray-600'
+                    ? 'border-violet-500/50 bg-violet-500/10'
+                    : 'border-white/[0.06] hover:border-white/[0.12]'
                 }`}
               >
                 <CategoryIcon icon={icon} color={form.color} size={18} />

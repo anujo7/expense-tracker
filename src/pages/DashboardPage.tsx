@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays, TrendingDown, TrendingUp } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { SpentCard } from '../components/dashboard/SpentCard'
 import { InsightCard } from '../components/dashboard/InsightCard'
 import { BudgetCard } from '../components/dashboard/BudgetCard'
@@ -70,9 +71,16 @@ export function DashboardPage() {
   const loading = expLoading || budgetLoading || lastMonthLoading
 
   return (
-    <div className="p-4 sm:p-8 max-w-2xl mx-auto space-y-6">
+    <motion.div
+      className="p-4 sm:p-8 max-w-2xl mx-auto space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="sm:hidden">
-        <h1 className="text-xl font-bold text-white">Dashboard</h1>
+        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/50">
+          Dashboard
+        </h1>
       </div>
 
       {loading ? (
@@ -112,16 +120,16 @@ export function DashboardPage() {
 
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-white">Recent Expenses</h2>
+          <h2 className="text-base font-semibold text-white/80">Recent Expenses</h2>
           <Link
             to="/expenses"
-            className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
+            className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
           >
             View all <ArrowRight size={14} />
           </Link>
         </div>
         {loading ? <ListSkeleton /> : <ExpenseList expenses={recentExpenses} onUpdate={refetch} />}
       </div>
-    </div>
+    </motion.div>
   )
 }

@@ -18,7 +18,7 @@ export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
       <EmptyState
         title="No spending data"
         subtitle="Add expenses to see your category breakdown"
-        icon={<PieChart size={28} className="text-gray-500" />}
+        icon={<PieChart size={28} className="text-white/30" />}
       />
     )
   }
@@ -31,13 +31,13 @@ export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
             <div className="shrink-0">
               <CategoryIcon icon={category.icon} color={category.color} size={16} />
             </div>
-            <span className="text-sm text-gray-300 flex-1 truncate">{category.name}</span>
-            <span className="text-sm font-medium text-white shrink-0">{formatINR(amount)}</span>
-            <span className="text-xs text-gray-500 w-10 text-right shrink-0">
+            <span className="text-sm text-white/60 flex-1 truncate">{category.name}</span>
+            <span className="text-sm font-medium text-white/90 shrink-0">{formatINR(amount)}</span>
+            <span className="text-xs text-white/30 w-10 text-right shrink-0">
               {Math.round(percentage)}%
             </span>
           </div>
-          <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
+          <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{

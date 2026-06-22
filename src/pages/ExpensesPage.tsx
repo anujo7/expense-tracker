@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Download, Filter, Search } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { ExpenseList } from '../components/expenses/ExpenseList'
 import { ListSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -77,11 +78,18 @@ export function ExpensesPage() {
   const hasFilters = startDate || endDate || categoryFilter || searchQuery
 
   return (
-    <div className="p-4 sm:p-8 max-w-2xl mx-auto space-y-4">
+    <motion.div
+      className="p-4 sm:p-8 max-w-2xl mx-auto space-y-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Expenses</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/50">
+            Expenses
+          </h1>
+          <p className="text-sm text-white/30">
             {filteredExpenses.length} of {expenses.length} expenses · {formatINR(total)}
           </p>
         </div>
@@ -102,44 +110,48 @@ export function ExpensesPage() {
       </div>
 
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
         <input
           type="text"
           placeholder="Search by note, category, or amount..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="w-full bg-dark-card border border-dark-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-accent"
+          className="w-full backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white/90 placeholder:text-white/20 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
         />
       </div>
 
       {showFilters && (
-        <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
+        <motion.div
+          className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+        >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">From</label>
+              <label className="block text-xs text-white/30 mb-1">From</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+                className="w-full backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">To</label>
+              <label className="block text-xs text-white/30 mb-1">To</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+                className="w-full backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Category</label>
+            <label className="block text-xs text-white/30 mb-1">Category</label>
             <select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+              className="w-full backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
             >
               <option value="">All Categories</option>
               {categories.map(cat => (
@@ -154,10 +166,10 @@ export function ExpensesPage() {
               Clear filters
             </Button>
           )}
-        </div>
+        </motion.div>
       )}
 
       {loading ? <ListSkeleton count={8} /> : <ExpenseList expenses={filteredExpenses} onUpdate={refetch} />}
-    </div>
+    </motion.div>
   )
 }

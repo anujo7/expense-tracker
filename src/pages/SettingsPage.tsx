@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { LogOut } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { CategoryManager } from '../components/categories/CategoryManager'
 import { BudgetSettings } from '../components/budget/BudgetSettings'
 import { Button } from '../components/ui/Button'
@@ -23,21 +24,33 @@ export function SettingsPage() {
   const currentMonthExpenses = useMemo(() => expenses, [expenses])
 
   return (
-    <div className="p-4 sm:p-8 max-w-2xl mx-auto space-y-8">
-      <h1 className="text-xl font-bold text-white">Settings</h1>
+    <motion.div
+      className="p-4 sm:p-8 max-w-2xl mx-auto space-y-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/50">
+        Settings
+      </h1>
 
       <BudgetSettings expenses={currentMonthExpenses} />
 
       <CategoryManager />
 
-      <div className="bg-dark-card border border-dark-border rounded-2xl p-5 space-y-4">
-        <h3 className="text-lg font-semibold text-white">Account</h3>
-        <p className="text-sm text-gray-400">{user?.email}</p>
+      <motion.div
+        className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 space-y-4"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+      >
+        <h3 className="text-lg font-semibold text-white/90">Account</h3>
+        <p className="text-sm text-white/40">{user?.email}</p>
         <Button variant="danger" onClick={signOut}>
           <LogOut size={16} />
           Sign Out
         </Button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
