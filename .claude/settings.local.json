@@ -19,7 +19,10 @@
       "Bash(npx uipro *)",
       "Bash(uipro init *)",
       "Bash(rm /Users/anujparashar/Personal/expense-app/.claude/skills)",
-      "Bash(mkdir -p /Users/anujparashar/Personal/expense-app/.claude/skills)"
+      "Bash(mkdir -p /Users/anujparashar/Personal/expense-app/.claude/skills)",
+      "Skill(run)",
+      "Bash(node *)",
+      "Bash(npx playwright *)"
     ]
   }
 }
