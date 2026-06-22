@@ -504,8 +504,17 @@ export default async function handler(
     return res.status(500).json({ error: usersError?.message || 'Failed to fetch users' })
   }
 
+  const testEmailOverride = process.env.TEST_EMAIL_OVERRIDE
+  const filteredUsers = testEmailOverride
+    ? users.users.filter(u => u.email === testEmailOverride)
+    : users.users
+
+  if (testEmailOverride && filteredUsers.length === 0) {
+    return res.status(404).json({ error: `No user found with email: ${testEmailOverride}` })
+  }
+
   const results = []
-  for (const user of users.users) {
+  for (const user of filteredUsers) {
     if (!user.email) {
       results.push({ email: null, status: 'skipped', reason: 'no email' })
       continue
