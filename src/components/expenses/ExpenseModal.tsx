@@ -156,7 +156,7 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
           onChange={e => setForm(f => ({ ...f, expense_date: e.target.value }))}
         />
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-3 pt-2 sticky bottom-0 pb-1 bg-[#0d0d0d] border-t border-white/[0.06] -mx-6 px-6">
           <Button variant="secondary" type="button" onClick={onClose} className="flex-1">
             Cancel
           </Button>
