@@ -7,6 +7,8 @@ export interface Category {
   created_at: string
 }
 
+export type PaymentMode = 'online' | 'cash'
+
 export interface Expense {
   id: string
   user_id: string
@@ -14,6 +16,7 @@ export interface Expense {
   category_id: string | null
   note: string
   expense_date: string
+  payment_mode: PaymentMode
   created_at: string
   category?: Category | null
 }
@@ -40,6 +43,7 @@ export interface ExpenseFormData {
   category_id: string
   note: string
   expense_date: string
+  payment_mode: PaymentMode
 }
 
 export interface CategoryFormData {

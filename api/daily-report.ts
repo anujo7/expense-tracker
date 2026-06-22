@@ -105,7 +105,7 @@ async function getAnalytics(
       .maybeSingle(),
   ])
 
-  const yesterdayExpenses = (yesterdayRes.data || []) as Expense[]
+  const yesterdayExpenses = (yesterdayRes.data || []) as unknown as Expense[]
   const yesterdayTotal = yesterdayExpenses.reduce((s, e) => s + e.amount, 0)
 
   const dayBeforeTotal = (dayBeforeRes.data || []).reduce(
@@ -218,7 +218,70 @@ function buildSubject(analytics: UserAnalytics, dateLabel: string): string {
   return `📊 You spent ${formatINR(analytics.yesterdayTotal)} yesterday — ${dateLabel}`
 }
 
-function buildHtml(analytics: UserAnalytics, dateLabel: string): string {
+const QUOTES = {
+  good: [
+    { text: "Wealth is not about having a lot of money; it's about having a lot of options.", author: "Chris Rock" },
+    { text: "Do not save what is left after spending; instead spend what is left after saving.", author: "Warren Buffett" },
+    { text: "A budget is telling your money where to go instead of wondering where it went.", author: "Dave Ramsey" },
+    { text: "Financial freedom is available to those who learn about it and work for it.", author: "Robert Kiyosaki" },
+    { text: "It's not your salary that makes you rich, it's your spending habits.", author: "Charles A. Jaffe" },
+  ],
+  warning: [
+    { text: "Beware of little expenses; a small leak will sink a great ship.", author: "Benjamin Franklin" },
+    { text: "The habit of saving is itself an education; it fosters every virtue, teaches self-denial, cultivates the sense of order.", author: "T.T. Munger" },
+    { text: "You must gain control over your money or the lack of it will forever control you.", author: "Dave Ramsey" },
+    { text: "Too many people spend money they haven't earned to buy things they don't want to impress people they don't like.", author: "Will Rogers" },
+    { text: "Money is a terrible master but an excellent servant.", author: "P.T. Barnum" },
+  ],
+  overspent: [
+    { text: "I'm not telling you it's going to be easy. I'm telling you it's going to be worth it.", author: "Art Williams" },
+    { text: "The best time to plant a tree was 20 years ago. The second best time is now.", author: "Chinese Proverb" },
+    { text: "It always seems impossible until it's done.", author: "Nelson Mandela" },
+    { text: "Fall seven times, stand up eight.", author: "Japanese Proverb" },
+    { text: "Every accomplishment starts with the decision to try.", author: "John F. Kennedy" },
+  ],
+  nospend: [
+    { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+    { text: "Small disciplines repeated with consistency every day lead to great achievements gained slowly over time.", author: "John C. Maxwell" },
+    { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" },
+    { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln" },
+    { text: "The chains of habit are too light to be felt until they are too heavy to be broken.", author: "Warren Buffett" },
+  ],
+}
+
+function pickQuote(analytics: UserAnalytics): { text: string; author: string } {
+  let pool: { text: string; author: string }[]
+  if (analytics.yesterdayTotal === 0 || analytics.noSpendStreak >= 2) {
+    pool = QUOTES.nospend
+  } else if (analytics.monthBudget && analytics.monthTotal > analytics.monthBudget) {
+    pool = QUOTES.overspent
+  } else if (analytics.monthBudget && analytics.monthTotal > analytics.monthBudget * 0.7) {
+    pool = QUOTES.warning
+  } else {
+    pool = QUOTES.good
+  }
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
+async function fetchMeme(analytics: UserAnalytics): Promise<{ url: string; title: string } | null> {
+  const subreddit = analytics.monthBudget && analytics.monthTotal > analytics.monthBudget
+    ? 'PovertyFinance'
+    : analytics.yesterdayTotal === 0
+      ? 'financememes'
+      : 'financememes'
+  try {
+    const res = await fetch(`https://meme-api.com/gimme/${subreddit}`, { signal: AbortSignal.timeout(4000) })
+    if (!res.ok) return null
+    const data = await res.json() as { url: string; title: string; nsfw: boolean; spoiler: boolean }
+    if (data.nsfw || data.spoiler) return null
+    if (!data.url.match(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i)) return null
+    return { url: data.url, title: data.title }
+  } catch {
+    return null
+  }
+}
+
+function buildHtml(analytics: UserAnalytics, dateLabel: string, quote: { text: string; author: string }, meme: { url: string; title: string } | null): string {
   const a = analytics
   const accent = '#6366f1'
   const green = '#10b981'
@@ -392,6 +455,18 @@ function buildHtml(analytics: UserAnalytics, dateLabel: string): string {
     ${budgetSection}
     ${insightSection}
 
+    ${card(`
+      <div style="font-size:11px;color:${gray};margin-bottom:10px;font-weight:600;letter-spacing:0.05em;">TODAY'S MOTIVATION</div>
+      <div style="font-size:15px;color:#e5e7eb;line-height:1.6;font-style:italic;margin-bottom:10px;">&ldquo;${quote.text}&rdquo;</div>
+      <div style="font-size:12px;color:${gray};">— ${quote.author}</div>
+    `)}
+
+    ${meme ? `<div style="background:${cardBg};border:1px solid ${borderColor};border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:11px;color:${gray};margin-bottom:10px;font-weight:600;letter-spacing:0.05em;">MEME OF THE DAY</div>
+      <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;">${meme.title}</div>
+      <img src="${meme.url}" alt="meme" style="width:100%;border-radius:10px;max-height:300px;object-fit:cover;" />
+    </div>` : ''}
+
     ${appUrl ? `<div style="text-align:center;margin-top:24px;">
       <a href="${appUrl}" style="display:inline-block;background:${accent};color:#ffffff;font-size:14px;font-weight:600;padding:12px 32px;border-radius:12px;text-decoration:none;">Open Expense Tracker</a>
     </div>` : ''}
@@ -439,7 +514,9 @@ export default async function handler(
     try {
       const analytics = await getAnalytics(supabase, user.id)
       const subject = buildSubject(analytics, dateLabel)
-      const html = buildHtml(analytics, dateLabel)
+      const quote = pickQuote(analytics)
+      const meme = await fetchMeme(analytics)
+      const html = buildHtml(analytics, dateLabel, quote, meme)
       const emailResult = await sendEmail(user.email, subject, html)
       results.push({ email: user.email, spent: analytics.yesterdayTotal, ...emailResult })
     } catch (err) {

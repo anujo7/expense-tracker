@@ -7,6 +7,7 @@ import { CategoryIcon } from '../ui/CategoryIcon'
 import { useCategories } from '../../hooks/useCategories'
 import { useExpenses } from '../../hooks/useExpenses'
 import { toLocalDatetimeString } from '../../utils/format'
+import { Wifi, Banknote } from 'lucide-react'
 import type { Expense, ExpenseFormData } from '../../types'
 
 interface ExpenseModalProps {
@@ -25,6 +26,7 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
     category_id: '',
     note: '',
     expense_date: toLocalDatetimeString(new Date()),
+    payment_mode: 'online',
   })
 
   useEffect(() => {
@@ -35,6 +37,7 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
           category_id: expense.category_id || '',
           note: expense.note || '',
           expense_date: toLocalDatetimeString(new Date(expense.expense_date)),
+          payment_mode: expense.payment_mode || 'online',
         })
       } else {
         setForm({
@@ -42,6 +45,7 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
           category_id: categories[0]?.id || '',
           note: '',
           expense_date: toLocalDatetimeString(new Date()),
+          payment_mode: 'online',
         })
       }
     }
@@ -109,6 +113,29 @@ export function ExpenseModal({ isOpen, onClose, expense, onSaved }: ExpenseModal
                 <span className="text-[10px] text-white/40 truncate w-full text-center">
                   {cat.name}
                 </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white/50 mb-2">Payment Mode</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(['online', 'cash'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, payment_mode: mode }))}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
+                  form.payment_mode === mode
+                    ? mode === 'online'
+                      ? 'border-violet-500/50 bg-violet-500/10 text-violet-300'
+                      : 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
+                    : 'border-white/[0.06] text-white/40 hover:border-white/[0.12]'
+                }`}
+              >
+                {mode === 'online' ? <Wifi size={15} /> : <Banknote size={15} />}
+                {mode === 'online' ? 'Online' : 'Cash'}
               </button>
             ))}
           </div>

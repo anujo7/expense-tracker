@@ -59,6 +59,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
         category_id: formData.category_id || null,
         note: formData.note,
         expense_date: formData.expense_date,
+        payment_mode: formData.payment_mode,
       })
       .select('*, category:categories(*)')
       .single()
@@ -77,6 +78,7 @@ export function useExpenses(options: UseExpensesOptions = {}) {
         category_id: formData.category_id || null,
         note: formData.note,
         expense_date: formData.expense_date,
+        payment_mode: formData.payment_mode,
       })
       .eq('id', id)
       .select('*, category:categories(*)')

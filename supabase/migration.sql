@@ -117,7 +117,11 @@ create policy "Users can delete their own category budgets"
   on public.category_budgets for delete
   using (auth.uid() = user_id);
 
--- 5. Indexes for performance
+-- 5. Payment mode column (run this if upgrading an existing DB)
+alter table public.expenses
+  add column if not exists payment_mode text not null default 'online' check (payment_mode in ('online', 'cash'));
+
+-- 6. Indexes for performance
 create index idx_expenses_user_date on public.expenses(user_id, expense_date desc);
 create index idx_expenses_category on public.expenses(category_id);
 create index idx_categories_user on public.categories(user_id);

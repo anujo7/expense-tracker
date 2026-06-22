@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Wifi, Banknote } from 'lucide-react'
 import { format, isSameDay, subDays } from 'date-fns'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
@@ -105,7 +105,12 @@ export function ExpenseList({ expenses, onUpdate }: ExpenseListProps) {
                           <span className="text-xs text-white/30 truncate">{expense.note}</span>
                         )}
                       </div>
-                      <span className="text-xs text-white/30">{formatTime(expense.expense_date)}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-white/30">{formatTime(expense.expense_date)}</span>
+                        {expense.payment_mode === 'cash'
+                          ? <Banknote size={11} className="text-emerald-500/60" />
+                          : <Wifi size={11} className="text-violet-500/60" />}
+                      </div>
                     </div>
 
                     <span className="text-sm font-semibold text-white/90 whitespace-nowrap">
