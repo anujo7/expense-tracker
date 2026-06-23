@@ -180,19 +180,29 @@ async function getAnalytics(
     ? yesterdayExpenses.reduce((max, e) => (e.amount > max.amount ? e : max), yesterdayExpenses[0])
     : null
 
-  // No-spend streak: count consecutive days before yesterday with zero spending
-  let noSpendStreak = yesterdayTotal === 0 ? 1 : 0
-  if (noSpendStreak > 0) {
+  // Streaks: fetch last 30 days of expenses in one query instead of 60 sequential ones
+  let noSpendStreak = 0
+  let underBudgetStreak = 0
+  const thirtyDaysAgo = getDayRange(30)
+  const { data: last30 } = await supabase
+    .from('expenses')
+    .select('amount, expense_date')
+    .eq('user_id', userId)
+    .gte('expense_date', thirtyDaysAgo.start.toISOString())
+    .lte('expense_date', yesterday.end.toISOString())
+
+  const dailyTotals = new Map<string, number>()
+  for (const e of (last30 || []) as { amount: number; expense_date: string }[]) {
+    const dayKey = toIST(new Date(e.expense_date)).toISOString().slice(0, 10)
+    dailyTotals.set(dayKey, (dailyTotals.get(dayKey) || 0) + e.amount)
+  }
+
+  if (yesterdayTotal === 0) {
+    noSpendStreak = 1
     for (let d = 2; d <= 30; d++) {
       const range = getDayRange(d)
-      const { data } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('user_id', userId)
-        .gte('expense_date', range.start.toISOString())
-        .lte('expense_date', range.end.toISOString())
-        .limit(1)
-      if (!data || data.length === 0) {
+      const dayKey = toIST(range.start).toISOString().slice(0, 10)
+      if ((dailyTotals.get(dayKey) || 0) === 0) {
         noSpendStreak++
       } else {
         break
@@ -200,20 +210,12 @@ async function getAnalytics(
     }
   }
 
-  // Under-budget streak: consecutive days where daily spend < daily budget allowance
-  let underBudgetStreak = 0
   if (monthBudget && monthBudget > 0) {
     const dailyBudget = monthBudget / new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getUTCDate()
     for (let d = 1; d <= 30; d++) {
       const range = getDayRange(d)
-      const { data } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('user_id', userId)
-        .gte('expense_date', range.start.toISOString())
-        .lte('expense_date', range.end.toISOString())
-      const dayTotal = (data || []).reduce((s: number, e: { amount: number }) => s + e.amount, 0)
-      if (dayTotal <= dailyBudget) {
+      const dayKey = toIST(range.start).toISOString().slice(0, 10)
+      if ((dailyTotals.get(dayKey) || 0) <= dailyBudget) {
         underBudgetStreak++
       } else {
         break
