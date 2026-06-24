@@ -1,9 +1,33 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/daily-report.ts": {
+      "maxDuration": 60
+    },
+    "api/monthly-report.ts": {
+      "maxDuration": 60
+    },
+    "api/weekly-report.ts": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/daily-report",
       "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/weekly-report",
+      "schedule": "30 18 * * 1"
+    },
+    {
+      "path": "/api/monthly-report",
+      "schedule": "30 18 1 * *"
     }
   ]
 }

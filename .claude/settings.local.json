@@ -22,7 +22,12 @@
       "Bash(mkdir -p /Users/anujparashar/Personal/expense-app/.claude/skills)",
       "Skill(run)",
       "Bash(node *)",
-      "Bash(npx playwright *)"
+      "Bash(npx playwright *)",
+      "Bash(crontab -l)",
+      "Bash(vercel whoami *)",
+      "Bash(gh api *)",
+      "Bash(gh auth *)",
+      "Bash(npx tsx *)"
     ]
   }
 }

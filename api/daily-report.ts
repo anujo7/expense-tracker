@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import nodemailer from 'nodemailer'
+import { generateAIInsights } from './utils/openrouter'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -328,7 +329,7 @@ async function fetchMeme(analytics: UserAnalytics): Promise<{ url: string; title
   }
 }
 
-function buildHtml(analytics: UserAnalytics, dateLabel: string, quote: { text: string; author: string }, meme: { url: string; title: string } | null): string {
+function buildHtml(analytics: UserAnalytics, dateLabel: string, quote: { text: string; author: string }, meme: { url: string; title: string } | null, aiInsights: string | null): string {
   const a = analytics
   const accent = '#6366f1'
   const green = '#10b981'
@@ -502,6 +503,11 @@ function buildHtml(analytics: UserAnalytics, dateLabel: string, quote: { text: s
     ${budgetSection}
     ${insightSection}
 
+    ${aiInsights ? card(`
+      <div style="font-size:11px;color:${gray};margin-bottom:10px;font-weight:600;letter-spacing:0.05em;">AI INSIGHTS</div>
+      <div style="font-size:13px;color:#d1d5db;line-height:1.6;white-space:pre-line;">${aiInsights}</div>
+    `) : ''}
+
     ${card(`
       <div style="font-size:11px;color:${gray};margin-bottom:10px;font-weight:600;letter-spacing:0.05em;">TODAY'S MOTIVATION</div>
       <div style="font-size:15px;color:#e5e7eb;line-height:1.6;font-style:italic;margin-bottom:10px;">&ldquo;${quote.text}&rdquo;</div>
@@ -574,7 +580,8 @@ export default async function handler(
       const subject = buildSubject(analytics, dateLabel)
       const quote = pickQuote(analytics)
       const meme = await fetchMeme(analytics)
-      const html = buildHtml(analytics, dateLabel, quote, meme)
+      const aiInsights = await generateAIInsights(`Yesterday I spent ${formatINR(analytics.yesterdayTotal)}. Categories: ${analytics.categoryBreakdown.map(c => `${c.name} ${formatINR(c.amount)}`).join(', ')}. Monthly total so far: ${formatINR(analytics.monthTotal)}. Monthly budget: ${analytics.monthBudget ? formatINR(analytics.monthBudget) : 'none'}. Give 2-3 concise insights.`)
+      const html = buildHtml(analytics, dateLabel, quote, meme, aiInsights)
       const sendTo = process.env.TEST_TO_EMAIL || user.email
       const emailResult = await sendEmail(sendTo, subject, html)
       results.push({ email: user.email, spent: analytics.yesterdayTotal, ...emailResult })
