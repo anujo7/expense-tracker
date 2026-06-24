@@ -15,6 +15,8 @@ import {
   endOfMonth,
   startOfWeek,
   endOfWeek,
+  startOfDay,
+  endOfDay,
   subMonths,
   getDate,
 } from 'date-fns'
@@ -57,6 +59,17 @@ export function DashboardPage() {
       .reduce((sum, e) => sum + e.amount, 0)
   }, [expenses, now])
 
+  const totalToday = useMemo(() => {
+    const dayStart = startOfDay(now)
+    const dayEnd = endOfDay(now)
+    return expenses
+      .filter(e => {
+        const d = new Date(e.expense_date)
+        return d >= dayStart && d <= dayEnd
+      })
+      .reduce((sum, e) => sum + e.amount, 0)
+  }, [expenses, now])
+
   const avgDailySpend = useMemo(() => {
     const dayOfMonth = getDate(now)
     return dayOfMonth > 0 ? totalThisMonth / dayOfMonth : 0
@@ -89,6 +102,7 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 gap-4">
             <CardSkeleton />
             <CardSkeleton />
+            <CardSkeleton />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <CardSkeleton />
@@ -99,8 +113,9 @@ export function DashboardPage() {
         <>
           <BudgetCard spent={totalThisMonth} budget={budget?.total_budget || 0} />
           <div className="grid grid-cols-2 gap-4">
-            <SpentCard total={totalThisMonth} label="This Month" />
+            <SpentCard total={totalToday} label="Today" />
             <SpentCard total={totalThisWeek} label="This Week" />
+            <SpentCard total={totalThisMonth} label="This Month" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <InsightCard
