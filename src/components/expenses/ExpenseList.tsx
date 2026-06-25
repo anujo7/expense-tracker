@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Pencil, Trash2, Wifi, Banknote } from 'lucide-react'
 import { format, isSameDay, subDays } from 'date-fns'
 import toast from 'react-hot-toast'
-import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
+import { motion, type PanInfo } from 'framer-motion'
 import { CategoryIcon } from '../ui/CategoryIcon'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { EmptyState } from '../ui/EmptyState'
@@ -22,34 +22,25 @@ function SwipeableRow({ expense, index, onEdit, onDelete }: {
   onEdit: (e: Expense) => void
   onDelete: (e: Expense) => void
 }) {
-  const x = useMotionValue(0)
-  const bgOpacity = useTransform(x, [-100, -40, 0], [1, 0.5, 0])
-
-  const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
-    if (info.offset.x < -80) onDelete(expense)
-  }, [expense, onDelete])
-
   return (
     <div className="relative overflow-hidden rounded-xl">
-      <motion.div
-        className="absolute inset-y-0 right-0 flex items-center justify-center w-20 bg-red-500/20 sm:hidden"
-        style={{ opacity: bgOpacity }}
-      >
+      <div className="absolute inset-y-0 right-0 flex items-center justify-center w-20 bg-red-500/20 sm:hidden">
         <Trash2 size={18} className="text-red-400" />
-      </motion.div>
+      </div>
 
       <motion.div
         className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.03] rounded-xl border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all duration-200 group relative"
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: index * 0.03 }}
-        style={{ x }}
         drag="x"
         dragDirectionLock
         dragSnapToOrigin
         dragConstraints={{ left: -120, right: 0 }}
         dragElastic={0.1}
-        onDragEnd={handleDragEnd}
+        onDragEnd={(_: unknown, info: PanInfo) => {
+          if (info.offset.x < -80) onDelete(expense)
+        }}
       >
         <CategoryIcon
           icon={expense.category?.icon || 'tag'}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { Expense, ExpenseFormData } from '../types'
@@ -14,10 +14,11 @@ export function useExpenses(options: UseExpensesOptions = {}) {
   const { user } = useAuth()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
+  const channelId = useId()
 
-  const fetchExpenses = useCallback(async () => {
+  const fetchExpenses = useCallback(async (silent = false) => {
     if (!user) return
-    setLoading(true)
+    if (!silent) setLoading(true)
 
     let query = supabase
       .from('expenses')
@@ -48,19 +49,19 @@ export function useExpenses(options: UseExpensesOptions = {}) {
     fetchExpenses()
   }, [fetchExpenses])
 
-  // ponytail: realtime via supabase channel, refetches on any INSERT/UPDATE/DELETE
+  // ponytail: realtime via supabase channel, refetches on any change
   useEffect(() => {
     if (!user) return
     const channel = supabase
-      .channel('expenses-realtime')
+      .channel(`expenses-${channelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${user.id}` },
-        () => fetchExpenses()
+        () => fetchExpenses(true)
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [user, fetchExpenses])
+  }, [user, channelId, fetchExpenses])
 
   const addExpense = async (formData: ExpenseFormData) => {
     if (!user) return { error: new Error('Not authenticated') }
