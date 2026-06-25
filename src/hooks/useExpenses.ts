@@ -48,6 +48,20 @@ export function useExpenses(options: UseExpensesOptions = {}) {
     fetchExpenses()
   }, [fetchExpenses])
 
+  // ponytail: realtime via supabase channel, refetches on any INSERT/UPDATE/DELETE
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('expenses-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${user.id}` },
+        () => fetchExpenses()
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user, fetchExpenses])
+
   const addExpense = async (formData: ExpenseFormData) => {
     if (!user) return { error: new Error('Not authenticated') }
 
