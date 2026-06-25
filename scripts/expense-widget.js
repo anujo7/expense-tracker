@@ -1,10 +1,10 @@
 // Expense Tracker Widget for Scriptable (iOS)
 // Copy this entire script into the Scriptable app
 
-const API_URL = "https://YOUR_VERCEL_URL/api/widget-data"
-const WIDGET_SECRET = "YOUR_WIDGET_SECRET"
+const API_URL = "https://expense-tracker-kami07.vercel.app/api/widget-data"
+const WIDGET_SECRET = "58d1b92facbf6966b84f376c77c536e39a85ec673621f42a"
 const EMAIL = "anujparashar07@gmail.com"
-const APP_URL = "https://YOUR_VERCEL_URL"
+const APP_URL = "https://expense-tracker-kami07.vercel.app"
 
 // Colors
 const BG = new Color("#0a0a0a")
