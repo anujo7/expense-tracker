@@ -29,7 +29,7 @@ function SwipeableRow({ expense, index, onEdit, onDelete }: {
       </div>
 
       <motion.div
-        className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.03] rounded-xl border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all duration-200 group relative"
+        className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.05] rounded-xl border border-white/[0.09] hover:bg-white/[0.07] hover:border-white/[0.13] transition-all duration-200 group relative"
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: index * 0.03 }}
@@ -54,11 +54,11 @@ function SwipeableRow({ expense, index, onEdit, onDelete }: {
               {expense.category?.name || 'Uncategorized'}
             </span>
             {expense.note && (
-              <span className="text-xs text-white/30 truncate">{expense.note}</span>
+              <span className="text-xs text-white/40 truncate">{expense.note}</span>
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-white/30">{formatTime(expense.expense_date)}</span>
+            <span className="text-xs text-white/40">{formatTime(expense.expense_date)}</span>
             {expense.payment_mode === 'cash'
               ? <Banknote size={11} className="text-emerald-500/60" />
               : <Wifi size={11} className="text-violet-500/60" />}
@@ -146,10 +146,10 @@ export function ExpenseList({ expenses, onUpdate }: ExpenseListProps) {
           return (
             <div key={dateKey}>
               <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-medium text-white/40 uppercase tracking-wide">
+                <span className="text-xs font-medium text-white/50 uppercase tracking-wide">
                   {getDayLabel(dateKey)}
                 </span>
-                <span className="text-xs font-medium text-white/40">
+                <span className="text-xs font-medium text-white/50">
                   {formatINR(dayTotal)}
                 </span>
               </div>

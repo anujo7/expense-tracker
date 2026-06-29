@@ -43,7 +43,7 @@ export function CategoryManager() {
         {categories.map((cat, index) => (
           <motion.div
             key={cat.id}
-            className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.03] rounded-xl border border-white/[0.06] hover:bg-white/[0.06] transition-all duration-200 group"
+            className="flex items-center gap-3 p-3.5 backdrop-blur-xl bg-white/[0.05] rounded-xl border border-white/[0.09] hover:bg-white/[0.07] transition-all duration-200 group"
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.03 }}

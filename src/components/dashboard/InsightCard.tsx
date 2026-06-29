@@ -15,19 +15,19 @@ export function InsightCard({ value, label, change, isCurrency = true, icon }: I
 
   return (
     <motion.div
-      className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5"
+      className="backdrop-blur-xl bg-white/[0.05] border border-white/[0.09] rounded-2xl p-4"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="flex items-center gap-2 mb-3">
-        {icon && <span className="text-violet-400">{icon}</span>}
-        <h3 className="text-sm font-medium text-white/40">{label}</h3>
+      <div className="flex items-center gap-1.5 mb-2">
+        {icon && <span className="text-violet-400/80">{icon}</span>}
+        <h3 className="text-xs font-medium text-white/45">{label}</h3>
       </div>
       <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="text-2xl font-bold text-white/90">{formattedValue}</span>
+        <span className="text-xl font-bold text-white">{formattedValue}</span>
         {change !== undefined && (
-          <span className={`text-xs font-medium ${change >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${change >= 0 ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
             {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(1)}%
           </span>
         )}

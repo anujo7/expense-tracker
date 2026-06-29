@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import { Input } from '../ui/Input'
@@ -20,6 +20,10 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
   const [totalInput, setTotalInput] = useState(budget?.total_budget?.toString() || '')
   const [catInputs, setCatInputs] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (budget?.total_budget != null) setTotalInput(budget.total_budget.toString())
+  }, [budget?.total_budget])
 
   const currentMonth = getCurrentMonth()
 
@@ -59,11 +63,11 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-white/90 mb-1">Budget for {getMonthLabel(currentMonth)}</h3>
-        <p className="text-sm text-white/30 mb-4">Set your spending limits</p>
+        <p className="text-sm text-white/45 mb-4">Set your spending limits</p>
       </div>
 
       <motion.div
-        className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 space-y-4"
+        className="backdrop-blur-xl bg-white/[0.05] border border-white/[0.09] rounded-2xl p-5 space-y-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -85,7 +89,7 @@ export function BudgetSettings({ expenses }: BudgetSettingsProps) {
       </motion.div>
 
       <motion.div
-        className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 space-y-4"
+        className="backdrop-blur-xl bg-white/[0.05] border border-white/[0.09] rounded-2xl p-5 space-y-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
