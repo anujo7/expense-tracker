@@ -19,14 +19,14 @@ interface SpendingChartProps {
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="backdrop-blur-xl bg-black/80 border border-white/[0.08] rounded-lg px-3 py-2 shadow-xl">
-      <p className="text-xs text-white/40">{label}</p>
-      <p className="text-sm font-semibold text-white/90">₹{payload[0].value.toLocaleString('en-IN')}</p>
+    <div className="backdrop-blur-xl bg-black/85 border border-white/[0.1] rounded-xl px-3 py-2.5 shadow-xl">
+      <p className="text-xs text-white/45 mb-0.5">{label}</p>
+      <p className="text-sm font-semibold text-white">₹{payload[0].value.toLocaleString('en-IN')}</p>
     </div>
   )
 }
 
-export function SpendingChart({ data, height = 250 }: SpendingChartProps) {
+export function SpendingChart({ data, height = 220 }: SpendingChartProps) {
   if (data.length === 0) {
     return (
       <EmptyState
@@ -40,21 +40,27 @@ export function SpendingChart({ data, height = 250 }: SpendingChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+        <defs>
+          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#a78bfa" stopOpacity={1} />
+            <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.8} />
+          </linearGradient>
+        </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
         <XAxis
           dataKey="label"
-          tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+          tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }}
           axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
           tickLine={false}
         />
         <YAxis
-          tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }}
+          tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={v => formatINRCompact(v as number)}
         />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(139, 92, 246, 0.05)' }} />
-        <Bar dataKey="amount" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(139, 92, 246, 0.06)' }} />
+        <Bar dataKey="amount" fill="url(#barGradient)" radius={[5, 5, 0, 0]} maxBarSize={40} />
       </BarChart>
     </ResponsiveContainer>
   )

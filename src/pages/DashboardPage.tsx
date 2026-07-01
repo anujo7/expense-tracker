@@ -115,17 +115,19 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 gap-4">
             <SpentCard total={totalToday} label="Today" />
             <SpentCard total={totalThisWeek} label="This Week" />
-            <SpentCard total={totalThisMonth} label="This Month" />
+            <div className="col-span-2">
+              <SpentCard total={totalThisMonth} label="This Month" prominent />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <InsightCard
               value={avgDailySpend}
-              label="Avg/day this month"
+              label="Avg/day"
               icon={<CalendarDays size={16} />}
             />
             <InsightCard
-              value={totalThisMonth}
-              label="vs last month"
+              value={totalLastMonth}
+              label="Last month"
               change={momChange}
               icon={momChange !== undefined && momChange >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
             />

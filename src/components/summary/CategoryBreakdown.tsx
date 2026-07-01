@@ -24,25 +24,26 @@ export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
   }
 
   return (
-    <div className="space-y-3 overflow-hidden">
+    <div className="space-y-3.5 overflow-hidden">
       {data.map(({ category, amount, percentage }) => (
-        <div key={category.id} className="space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div key={category.id} className="space-y-2 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="shrink-0">
               <CategoryIcon icon={category.icon} color={category.color} size={16} />
             </div>
-            <span className="text-sm text-white/60 flex-1 truncate">{category.name}</span>
-            <span className="text-sm font-medium text-white/90 shrink-0">{formatINR(amount)}</span>
-            <span className="text-xs text-white/30 w-10 text-right shrink-0">
+            <span className="text-sm text-white/65 flex-1 truncate">{category.name}</span>
+            <span className="text-sm font-semibold text-white/90 shrink-0">{formatINR(amount)}</span>
+            <span className="text-xs text-white/40 w-9 text-right shrink-0">
               {Math.round(percentage)}%
             </span>
           </div>
-          <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+          <div className="h-2 bg-white/[0.07] rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
                 width: `${percentage}%`,
                 backgroundColor: category.color,
+                boxShadow: `0 0 8px ${category.color}60`,
               }}
             />
           </div>

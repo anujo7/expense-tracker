@@ -579,8 +579,10 @@ export default async function handler(
       const analytics = await getAnalytics(supabase, user.id)
       const subject = buildSubject(analytics, dateLabel)
       const quote = pickQuote(analytics)
-      const meme = await fetchMeme(analytics)
-      const aiInsights = await generateAIInsights(`Yesterday I spent ${formatINR(analytics.yesterdayTotal)}. Categories: ${analytics.categoryBreakdown.map(c => `${c.name} ${formatINR(c.amount)}`).join(', ')}. Monthly total so far: ${formatINR(analytics.monthTotal)}. Monthly budget: ${analytics.monthBudget ? formatINR(analytics.monthBudget) : 'none'}. Give 2-3 concise insights.`)
+      const [meme, aiInsights] = await Promise.all([
+        fetchMeme(analytics),
+        generateAIInsights(`Yesterday I spent ${formatINR(analytics.yesterdayTotal)}. Categories: ${analytics.categoryBreakdown.map(c => `${c.name} ${formatINR(c.amount)}`).join(', ')}. Monthly total so far: ${formatINR(analytics.monthTotal)}. Monthly budget: ${analytics.monthBudget ? formatINR(analytics.monthBudget) : 'none'}. Give 2-3 concise insights.`),
+      ])
       const html = buildHtml(analytics, dateLabel, quote, meme, aiInsights)
       const sendTo = process.env.TEST_TO_EMAIL || user.email
       const emailResult = await sendEmail(sendTo, subject, html)

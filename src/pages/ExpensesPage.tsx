@@ -122,7 +122,7 @@ export function ExpensesPage() {
 
       {showFilters && (
         <motion.div
-          className="backdrop-blur-xl bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3"
+          className="backdrop-blur-xl bg-white/[0.05] border border-white/[0.09] rounded-xl p-4 space-y-3"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
         >
