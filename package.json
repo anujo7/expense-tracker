@@ -8,6 +8,7 @@
     "test:email": "tsx scripts/test-daily-report.ts",
     "test:weekly-email": "tsx scripts/test-weekly-report.ts",
     "test:monthly-email": "tsx scripts/test-monthly-report.ts",
+    "test:split": "tsx scripts/test-split-math.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

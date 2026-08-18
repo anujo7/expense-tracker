@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Receipt, BarChart3, Settings } from 'lucide-react'
+import { LayoutDashboard, Receipt, BarChart3, Settings, Users } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Home' },
   { to: '/expenses', icon: Receipt, label: 'Expenses' },
+  { to: '/split', icon: Users, label: 'Split' },
   { to: '/summary', icon: BarChart3, label: 'Summary' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
@@ -18,7 +19,7 @@ export function BottomNav() {
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all duration-200 cursor-pointer ${
+              `flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer ${
                 isActive
                   ? 'text-violet-400 bg-violet-500/15'
                   : 'text-white/40 hover:text-white/70'

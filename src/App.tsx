@@ -5,6 +5,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { AuthForm } from './components/auth/AuthForm'
 import { DashboardPage } from './pages/DashboardPage'
 import { ExpensesPage } from './pages/ExpensesPage'
+import { SplitPage } from './pages/SplitPage'
 import { SummaryPage } from './pages/SummaryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AnimatedAIChat } from './components/ui/animated-ai-chat'
@@ -60,6 +61,7 @@ function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
+        <Route path="/split" element={<SplitPage />} />
         <Route path="/summary" element={<SummaryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

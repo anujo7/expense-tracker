@@ -1,0 +1,105 @@
+import type { SplitItem, SplitPerson, SplitBalance, Settlement } from '../types'
+
+// All math here is done in integer paise to avoid floating point drift, then
+// converted back to rupees at the edges.
+
+export function allocate(total: number, weights: number[]): number[] {
+  if (weights.length === 0) return []
+
+  const sum = weights.reduce((a, b) => a + b, 0)
+  const w = sum > 0 ? weights : weights.map(() => 1)
+  const W = sum > 0 ? sum : weights.length
+
+  const bases = w.map((wi) => Math.floor((total * wi) / W))
+  const remainders = w.map((wi, i) => ({ i, frac: (total * wi) / W - bases[i] }))
+  let rem = total - bases.reduce((a, b) => a + b, 0)
+
+  remainders.sort((a, b) => b.frac - a.frac || a.i - b.i)
+  const shares = [...bases]
+  for (let k = 0; k < remainders.length && rem > 0; k++, rem--) {
+    shares[remainders[k].i]++
+  }
+  return shares
+}
+
+export function itemShares(item: SplitItem): Record<string, number> {
+  const total = Math.round(item.amount * 100)
+  const participants = [...new Set(item.participant_ids)]
+
+  if (participants.length === 0) {
+    return item.payer_id ? { [item.payer_id]: total } : {}
+  }
+
+  const weights =
+    item.mode === 'exact'
+      ? participants.map((id) => Math.max(0, Math.round((item.exact[id] ?? 0) * 100)))
+      : participants.map(() => 1)
+
+  const shares = allocate(total, weights)
+  const result: Record<string, number> = {}
+  participants.forEach((id, i) => {
+    result[id] = shares[i]
+  })
+  return result
+}
+
+export function billTotal(items: SplitItem[]): number {
+  return items.reduce((sum, item) => sum + item.amount, 0)
+}
+
+export function billBalances(people: SplitPerson[], items: SplitItem[]): SplitBalance[] {
+  const paid: Record<string, number> = {}
+  const owed: Record<string, number> = {}
+  for (const p of people) {
+    paid[p.id] = 0
+    owed[p.id] = 0
+  }
+
+  for (const item of items) {
+    const totalPaise = Math.round(item.amount * 100)
+    if (item.payer_id in paid) paid[item.payer_id] += totalPaise
+
+    const shares = itemShares(item)
+    for (const [personId, share] of Object.entries(shares)) {
+      if (personId in owed) owed[personId] += share
+    }
+  }
+
+  return people.map((p) => ({
+    person_id: p.id,
+    paid: paid[p.id] / 100,
+    owed: owed[p.id] / 100,
+    net: (paid[p.id] - owed[p.id]) / 100,
+  }))
+}
+
+export function settle(balances: SplitBalance[]): Settlement[] {
+  const debtors = balances
+    .filter((b) => b.net < 0)
+    .map((b) => ({ id: b.person_id, amount: -Math.round(b.net * 100) }))
+    .sort((a, b) => b.amount - a.amount)
+  const creditors = balances
+    .filter((b) => b.net > 0)
+    .map((b) => ({ id: b.person_id, amount: Math.round(b.net * 100) }))
+    .sort((a, b) => b.amount - a.amount)
+
+  const settlements: Settlement[] = []
+  let i = 0
+  let j = 0
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i]
+    const creditor = creditors[j]
+    const amount = Math.min(debtor.amount, creditor.amount)
+
+    if (amount >= 1) {
+      settlements.push({ from_id: debtor.id, to_id: creditor.id, amount: amount / 100 })
+    }
+
+    debtor.amount -= amount
+    creditor.amount -= amount
+    if (debtor.amount === 0) i++
+    if (creditor.amount === 0) j++
+  }
+
+  return settlements
+}

@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useLocation } from 'react-router-dom'
 import { ExpenseModal } from './ExpenseModal'
 
 export function FAB() {
   const [isOpen, setIsOpen] = useState(false)
+  const { pathname } = useLocation()
+
+  if (pathname.startsWith('/split')) return null
 
   return (
     <>

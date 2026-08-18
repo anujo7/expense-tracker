@@ -70,3 +70,43 @@ export interface SpendingSummary {
     amount: number
   }[]
 }
+
+export interface SplitPerson {
+  id: string
+  name: string
+}
+
+export type SplitMode = 'equal' | 'exact'
+
+export interface SplitItem {
+  id: string
+  label: string
+  amount: number
+  payer_id: string
+  mode: SplitMode
+  participant_ids: string[]
+  exact: Record<string, number>
+}
+
+export interface SplitBill {
+  id: string
+  user_id: string
+  title: string
+  bill_date: string
+  people: SplitPerson[]
+  items: SplitItem[]
+  created_at: string
+}
+
+export interface SplitBalance {
+  person_id: string
+  paid: number
+  owed: number
+  net: number
+}
+
+export interface Settlement {
+  from_id: string
+  to_id: string
+  amount: number
+}
