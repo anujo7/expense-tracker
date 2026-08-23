@@ -78,3 +78,31 @@ drop policy if exists "Users can update their own split bills" on public.split_b
 create policy "Owners and participants can update split bills"
   on public.split_bills for update
   using (auth.uid() = user_id or public.is_bill_participant(people));
+
+-- ============================================
+-- Concurrent settle-ups: append one payment inside the database instead of
+-- rewriting the whole array from a browser's stale copy, so two people
+-- settling at the same time cannot erase each other's payment.
+-- security invoker => the caller's RLS policies still decide who may write.
+-- ============================================
+create or replace function public.append_split_payment(bill_id uuid, payment jsonb)
+returns public.split_bills
+language sql
+volatile
+security invoker
+set search_path = ''
+as $$
+  update public.split_bills
+     set payments = coalesce(payments, '[]'::jsonb) || jsonb_build_array(payment)
+   where id = bill_id
+  returning *;
+$$;
+
+-- Live updates for everyone on the bill.
+do $$
+begin
+  alter publication supabase_realtime add table public.split_bills;
+exception
+  when duplicate_object then null;
+end
+$$;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { billTotal, billBalances, settle, itemShares } from '../utils/split'
 import { useAuth } from './useAuth'
@@ -13,6 +13,7 @@ export interface SplitBillInput {
 
 export function useSplitBills() {
   const { user } = useAuth()
+  const channelId = useId()
   const [bills, setBills] = useState<SplitBill[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -33,6 +34,19 @@ export function useSplitBills() {
   useEffect(() => {
     fetchBills()
   }, [fetchBills])
+
+  // ponytail: realtime via supabase channel, refetches on any change — so a
+  // friend settling up shows on your screen without a reload.
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel(`split-bills-${channelId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'split_bills' }, () => {
+        fetchBills()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user, channelId, fetchBills])
 
   const addBill = async (input: SplitBillInput) => {
     if (!user) return { data: null, error: new Error('Not authenticated') }
@@ -60,26 +74,20 @@ export function useSplitBills() {
     return { data, error }
   }
 
-  const setPayments = async (billId: string, payments: SplitPayment[]) => {
+  // Appends in the database (see append_split_payment) rather than writing back
+  // a locally-built array: two people settling at once must not overwrite each
+  // other's payment.
+  const recordPayment = async (bill: SplitBill, payment: Omit<SplitPayment, 'id' | 'paid_on'>) => {
     const { data, error } = await supabase
-      .from('split_bills')
-      .update({ payments })
-      .eq('id', billId)
-      .select()
-      .single()
+      .rpc('append_split_payment', {
+        bill_id: bill.id,
+        payment: { ...payment, id: crypto.randomUUID(), paid_on: new Date().toISOString().slice(0, 10) },
+      })
+      .single<SplitBill>()
 
-    if (!error && data) setBills(prev => prev.map(b => (b.id === billId ? data : b)))
+    if (!error && data) setBills(prev => prev.map(b => (b.id === bill.id ? data : b)))
     return { error }
   }
-
-  const recordPayment = (bill: SplitBill, payment: Omit<SplitPayment, 'id' | 'paid_on'>) =>
-    setPayments(bill.id, [
-      ...(bill.payments ?? []),
-      { ...payment, id: crypto.randomUUID(), paid_on: new Date().toISOString().slice(0, 10) },
-    ])
-
-  const removePayment = (bill: SplitBill, paymentId: string) =>
-    setPayments(bill.id, (bill.payments ?? []).filter(p => p.id !== paymentId))
 
   const postNotify = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -128,5 +136,5 @@ export function useSplitBills() {
     return { error }
   }
 
-  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, removePayment, notifyPeople, invitePerson, refetch: fetchBills }
+  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, notifyPeople, invitePerson, refetch: fetchBills }
 }
