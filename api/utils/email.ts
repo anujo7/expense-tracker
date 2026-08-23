@@ -1,5 +1,3 @@
-import nodemailer from 'nodemailer'
-
 // Single sender used by every report/notification route.
 export async function sendEmail(to: string, subject: string, html: string) {
   const gmailUser = process.env.GMAIL_USER
@@ -25,7 +23,10 @@ export async function sendEmail(to: string, subject: string, html: string) {
 
   // 2. Gmail via nodemailer — works locally only (Vercel blocks SMTP)
   if (gmailUser && gmailPass) {
-    const transporter = nodemailer.createTransport({
+    // Imported lazily: Vercel blocks SMTP, so this branch is local-only and must
+    // never be a load-time dependency of the deployed function.
+    const { createTransport } = await import('nodemailer')
+    const transporter = createTransport({
       service: 'gmail',
       auth: { user: gmailUser, pass: gmailPass },
     })
