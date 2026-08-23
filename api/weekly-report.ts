@@ -308,7 +308,8 @@ export default async function handler(
     return res.status(404).json({ error: `No user found with email: ${testEmailOverride}` })
   }
 
-  const results = []
+  // Mixed shapes: a skipped user, a thrown error, or a provider result.
+  const results: { ok?: boolean; error?: unknown; [key: string]: unknown }[] = []
   for (const user of filteredUsers) {
     if (!user.email) {
       results.push({ email: null, status: 'skipped', reason: 'no email' })
@@ -328,5 +329,16 @@ export default async function handler(
     }
   }
 
-  return res.status(200).json({ week: label, sent: results.length, results })
+  const delivered = results.filter(r => r.ok).length
+  const failed = results.filter(r => r.ok === false)
+  // Surface a hard failure so a broken provider shows up red in the cron logs
+  // instead of a green 200 with nothing delivered.
+  const status = delivered === 0 && failed.length > 0 ? 500 : 200
+  return res.status(status).json({
+    week: label,
+    sent: delivered,
+    attempted: results.length,
+    error: delivered === 0 && failed.length > 0 ? String(failed[0].error).slice(0, 300) : undefined,
+    results,
+  })
 }

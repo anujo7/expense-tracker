@@ -90,7 +90,11 @@ export function useSplitBills() {
       body: JSON.stringify(body),
     })
     const json = await res.json().catch(() => ({}))
-    return res.ok ? { sent: json.sent as number } : { sent: 0, error: json.error || 'Failed to send' }
+    const sent = (json.sent as number) ?? 0
+    if (!res.ok || sent === 0) {
+      return { sent: 0, error: (json.error as string) || `Failed to send (HTTP ${res.status})` }
+    }
+    return { sent }
   }
 
   // The API function cannot import the money math (it lives outside api/, so it

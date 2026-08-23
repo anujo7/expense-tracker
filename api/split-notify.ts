@@ -212,5 +212,15 @@ export default async function handler(
     results.push({ email: person.email, hasAccount, ...result })
   }
 
-  return res.status(200).json({ sent: results.filter(r => r.ok).length, results })
+  const delivered = results.filter(r => r.ok).length
+  const failed = results.filter(r => r.ok === false)
+  if (delivered === 0 && failed.length > 0) {
+    return res.status(502).json({
+      sent: 0,
+      attempted: results.length,
+      error: `Email provider refused the send: ${String(failed[0].error).slice(0, 300)}`,
+      results,
+    })
+  }
+  return res.status(200).json({ sent: delivered, attempted: results.length, results })
 }
