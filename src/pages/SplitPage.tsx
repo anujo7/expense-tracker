@@ -8,17 +8,58 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SplitBillModal, BillSummary } from '../components/split/SplitBillModal'
 import { useSplitBills } from '../hooks/useSplitBills'
-import { billTotal } from '../utils/split'
+import { useAuth } from '../hooks/useAuth'
+import { billTotal, billBalances, settle, personPosition, findSelf } from '../utils/split'
 import { formatINR, formatDate } from '../utils/format'
 import type { SplitBill } from '../types'
 
+// What the signed-in user owes or is owed on this bill, after payments.
+function YourPosition({ bill, email }: { bill: SplitBill; email?: string | null }) {
+  const self = findSelf(bill.people, email)
+  if (!self) return null
+
+  const settlements = settle(billBalances(bill.people, bill.items), bill.payments ?? [])
+  const me = personPosition(settlements, self.id)
+  if (me.owes === 0 && me.getsBack === 0) return null
+
+  return (
+    <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.07] px-3 py-2">
+      {me.owes > 0 && (
+        <p className="text-xs text-white/70">
+          Your share <span className="font-semibold text-white/90">{formatINR(me.owes)}</span> · paid{' '}
+          <span className="text-emerald-400">{formatINR(me.paid)}</span> ·{' '}
+          {me.remaining < 0.005 ? (
+            <span className="text-emerald-400 font-semibold">all settled</span>
+          ) : (
+            <span className="text-amber-400 font-semibold">{formatINR(me.remaining)} left to pay</span>
+          )}
+        </p>
+      )}
+      {me.getsBack > 0 && (
+        <p className="text-xs text-white/70">
+          You're owed <span className="font-semibold text-white/90">{formatINR(me.getsBack)}</span> · received{' '}
+          <span className="text-emerald-400">{formatINR(me.received)}</span> ·{' '}
+          {me.toReceive < 0.005 ? (
+            <span className="text-emerald-400 font-semibold">all settled</span>
+          ) : (
+            <span className="text-amber-400 font-semibold">{formatINR(me.toReceive)} to come back</span>
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function SplitPage() {
   const { bills, loading, deleteBill, recordPayment, notifyPeople, refetch } = useSplitBills()
+  const { user } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBill, setEditingBill] = useState<SplitBill | null>(null)
   const [deletingBill, setDeletingBill] = useState<SplitBill | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [notifyingId, setNotifyingId] = useState<string | null>(null)
+
+  const isOwner = (bill: SplitBill) => bill.user_id === user?.id
 
   const total = useMemo(() => bills.reduce((sum, b) => sum + billTotal(b.items), 0), [bills])
 
@@ -95,7 +136,12 @@ export function SplitPage() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white/90 truncate">{bill.title}</p>
+                  <p className="text-sm font-medium text-white/90 truncate">
+                    {bill.title}
+                    {!isOwner(bill) && (
+                      <span className="ml-2 text-[10px] font-medium text-violet-300/70 align-middle">shared with you</span>
+                    )}
+                  </p>
                   <p className="text-xs text-white/30">
                     {formatDate(bill.bill_date)} · {bill.items.length} items · {bill.people.length} people
                   </p>
@@ -118,20 +164,25 @@ export function SplitPage() {
                   >
                     <Pencil size={14} />
                   </button>
-                  <button
-                    onClick={() => setDeletingBill(bill)}
-                    className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {isOwner(bill) && (
+                    <button
+                      onClick={() => setDeletingBill(bill)}
+                      className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
+
+              <YourPosition bill={bill} email={user?.email} />
 
               <BillSummary
                 people={bill.people}
                 items={bill.items}
                 payments={bill.payments}
                 onPay={(from_id, to_id, amount) => recordPayment(bill, { from_id, to_id, amount })}
+                selfId={findSelf(bill.people, user?.email)?.id}
               />
             </div>
           ))}

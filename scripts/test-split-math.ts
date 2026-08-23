@@ -1,7 +1,7 @@
 // Framework-free correctness check for src/utils/split.ts money math.
 // Usage: npx tsx scripts/test-split-math.ts
 import assert from 'node:assert/strict'
-import { itemShares, billBalances, settle } from '../src/utils/split'
+import { itemShares, billBalances, settle, personPosition, findSelf } from '../src/utils/split'
 import type { SplitPerson, SplitItem } from '../src/types'
 
 // 1. Equal ₹100 among 3
@@ -212,3 +212,33 @@ console.log('split math OK')
 }
 
 console.log('split payments OK')
+
+// 9. Personal position: my ₹10,000 share, ₹8,000 handed over, ₹2,000 left.
+{
+  const people: SplitPerson[] = [
+    { id: 'me', name: 'Anuj', email: 'Anuj@Example.com' },
+    { id: 'c', name: 'Charchit', email: 'c@example.com' },
+  ]
+  const items: SplitItem[] = [
+    { id: 'i9', label: 'trip', amount: 20000, payer_id: 'c', mode: 'equal', participant_ids: ['me', 'c'], exact: {} },
+  ]
+  const settlements = settle(billBalances(people, items), [
+    { id: 'p1', from_id: 'me', to_id: 'c', amount: 8000, paid_on: '2026-08-24' },
+  ])
+  const mine = personPosition(settlements, 'me')
+  assert.equal(mine.owes, 10000)
+  assert.equal(mine.paid, 8000)
+  assert.equal(mine.remaining, 2000)
+
+  const theirs = personPosition(settlements, 'c')
+  assert.equal(theirs.getsBack, 10000)
+  assert.equal(theirs.toReceive, 2000)
+  assert.equal(theirs.remaining, 0)
+
+  // Self-match is case- and whitespace-insensitive, and absent email matches nobody.
+  assert.equal(findSelf(people, ' anuj@example.com ')?.id, 'me')
+  assert.equal(findSelf(people, 'nobody@example.com'), undefined)
+  assert.equal(findSelf(people, undefined), undefined)
+}
+
+console.log('personal position OK')

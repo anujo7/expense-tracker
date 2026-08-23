@@ -18,10 +18,11 @@ export function useSplitBills() {
   const fetchBills = useCallback(async () => {
     if (!user) return
     setLoading(true)
+    // No user_id filter: RLS returns bills you own *and* bills you're listed on
+    // (matched on your email in people[]), so a shared trip shows up for everyone.
     const { data, error } = await supabase
       .from('split_bills')
       .select('*')
-      .eq('user_id', user.id)
       .order('bill_date', { ascending: false })
 
     if (!error && data) setBills(data.map(b => ({ ...b, payments: b.payments ?? [] })))
@@ -79,17 +80,23 @@ export function useSplitBills() {
   const removePayment = (bill: SplitBill, paymentId: string) =>
     setPayments(bill.id, (bill.payments ?? []).filter(p => p.id !== paymentId))
 
-  const notifyPeople = async (billId: string) => {
+  const postNotify = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return { sent: 0, error: 'Not authenticated' }
     const res = await fetch('/api/split-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ billId }),
+      body: JSON.stringify(body),
     })
-    const body = await res.json().catch(() => ({}))
-    return res.ok ? { sent: body.sent as number } : { sent: 0, error: body.error || 'Failed to send' }
+    const json = await res.json().catch(() => ({}))
+    return res.ok ? { sent: json.sent as number } : { sent: 0, error: json.error || 'Failed to send' }
   }
+
+  const notifyPeople = (billId: string) => postNotify({ billId })
+
+  // Invite one person: same email, framed as an invitation if they have no account yet.
+  const invitePerson = (billId: string, personId: string) =>
+    postNotify({ billId, personId, invite: true })
 
   const deleteBill = async (id: string) => {
     const { error } = await supabase.from('split_bills').delete().eq('id', id)
@@ -97,5 +104,5 @@ export function useSplitBills() {
     return { error }
   }
 
-  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, removePayment, notifyPeople, refetch: fetchBills }
+  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, removePayment, notifyPeople, invitePerson, refetch: fetchBills }
 }

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, X, Trash2, Check } from 'lucide-react'
+import { Plus, X, Trash2, Check, Send } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { useSplitBills } from '../../hooks/useSplitBills'
-import { billTotal, billBalances, settle, itemShares } from '../../utils/split'
+import { useAuth } from '../../hooks/useAuth'
+import { billTotal, billBalances, settle, itemShares, findSelf } from '../../utils/split'
 import { formatINR } from '../../utils/format'
 import type { SplitBill, SplitPerson, SplitItem, SplitMode, SplitPayment } from '../../types'
 
@@ -29,17 +30,19 @@ export function BillSummary({
   items,
   payments = [],
   onPay,
+  selfId,
 }: {
   people: SplitPerson[]
   items: SplitItem[]
   payments?: SplitPayment[]
   onPay?: (from_id: string, to_id: string, amount: number) => void | Promise<unknown>
+  selfId?: string
 }) {
   const [payingKey, setPayingKey] = useState<string | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const balances = billBalances(people, items)
   const settlements = settle(balances, payments)
-  const nameOf = (id: string) => people.find(p => p.id === id)?.name || '—'
+  const nameOf = (id: string) => (id === selfId ? 'You' : people.find(p => p.id === id)?.name || '—')
 
   const submitPay = async (from: string, to: string, max: number) => {
     const amount = Math.min(parseFloat(payAmount) || 0, max)
@@ -56,7 +59,9 @@ export function BillSummary({
           const net = Math.abs(b.net) < 0.005 ? 0 : b.net
           return (
             <div key={b.person_id} className="flex items-center justify-between text-sm">
-              <span className="text-white/70">{nameOf(b.person_id)}</span>
+              <span className={b.person_id === selfId ? 'text-white font-medium' : 'text-white/70'}>
+                {nameOf(b.person_id)}
+              </span>
               {net === 0 ? (
                 <span className="text-white/30">settled</span>
               ) : net > 0 ? (
@@ -146,13 +151,15 @@ export function BillSummary({
 }
 
 export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModalProps) {
-  const { addBill, updateBill } = useSplitBills()
+  const { addBill, updateBill, invitePerson } = useSplitBills()
+  const { user } = useAuth()
   const [title, setTitle] = useState('')
   const [billDate, setBillDate] = useState(todayStr())
   const [people, setPeople] = useState<SplitPerson[]>([])
   const [items, setItems] = useState<SplitItem[]>([])
   const [newPersonName, setNewPersonName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [inviting, setInviting] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -164,11 +171,16 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     } else {
       setTitle('')
       setBillDate(todayStr())
-      setPeople([])
+      // Put yourself on the bill by default so the app can recognise your share.
+      setPeople(
+        user?.email
+          ? [{ id: crypto.randomUUID(), name: user.email.split('@')[0], email: user.email }]
+          : []
+      )
       setItems([emptyItem()])
     }
     setNewPersonName('')
-  }, [isOpen, bill])
+  }, [isOpen, bill, user?.email])
 
   const addPerson = () => {
     const name = newPersonName.trim()
@@ -189,6 +201,17 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
         return { ...item, participant_ids, exact, payer_id }
       })
     )
+  }
+
+  const savedEmailOf = (personId: string) => bill?.people.find(p => p.id === personId)?.email || ''
+
+  const sendInvite = async (person: SplitPerson) => {
+    if (!bill) return
+    setInviting(person.id)
+    const { error } = await invitePerson(bill.id, person.id)
+    setInviting(null)
+    if (error) toast.error(error)
+    else toast.success(`Invite sent to ${person.email}`)
   }
 
   const addItem = () => setItems(prev => [...prev, emptyItem()])
@@ -220,16 +243,36 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
 
     setLoading(true)
     const input = { title: title.trim(), bill_date: billDate, people, items }
-    const { error } = bill ? await updateBill(bill.id, input) : await addBill(input)
+    const { data, error } = bill ? await updateBill(bill.id, input) : await addBill(input)
     setLoading(false)
 
-    if (error) {
+    if (error || !data) {
       toast.error(`Failed to ${bill ? 'update' : 'add'} bill`)
-    } else {
-      toast.success('Bill saved')
-      onSaved?.()
-      onClose()
+      return
     }
+
+    toast.success('Bill saved')
+    onSaved?.()
+    onClose()
+
+    // Anyone whose email is new to this bill gets invited — that is the only
+    // moment an email goes out automatically.
+    const before = new Set(
+      (bill?.people ?? []).map(p => (p.email || '').toLowerCase()).filter(Boolean)
+    )
+    const fresh = people.filter(
+      p =>
+        p.email &&
+        p.email.includes('@') &&
+        !before.has(p.email.toLowerCase()) &&
+        p.email.toLowerCase() !== user?.email?.toLowerCase()
+    )
+    if (fresh.length === 0) return
+
+    const sent = await Promise.all(fresh.map(p => invitePerson(data.id, p.id)))
+    const ok = sent.filter(r => !r.error).length
+    if (ok > 0) toast.success(`Invited ${ok} ${ok === 1 ? 'friend' : 'friends'} by email`)
+    if (ok < fresh.length) toast.error(`Could not invite ${fresh.length - ok} of them`)
   }
 
   return (
@@ -263,7 +306,12 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
           <div className="space-y-1.5">
             {people.map(p => (
               <div key={p.id} className="flex items-center gap-2">
-                <span className="w-24 shrink-0 truncate text-xs font-medium text-violet-300">{p.name}</span>
+                <span className="w-24 shrink-0 truncate text-xs font-medium text-violet-300">
+                  {p.name}
+                  {p.email && p.email.toLowerCase() === user?.email?.toLowerCase() && (
+                    <span className="text-white/30 font-normal"> (you)</span>
+                  )}
+                </span>
                 <input
                   type="email"
                   value={p.email ?? ''}
@@ -273,6 +321,17 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
                   placeholder="email (optional, to notify)"
                   className="flex-1 min-w-0 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
                 />
+                {bill && p.email && p.email === savedEmailOf(p.id) && p.email.toLowerCase() !== user?.email?.toLowerCase() && (
+                  <button
+                    type="button"
+                    onClick={() => sendInvite(p)}
+                    disabled={inviting === p.id}
+                    title="Send them the invite again"
+                    className="shrink-0 p-1.5 rounded-lg text-white/30 hover:text-violet-300 hover:bg-violet-500/10 transition-all duration-200 disabled:opacity-40"
+                  >
+                    <Send size={13} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => removePerson(p.id)}
@@ -438,7 +497,12 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
               <span className="text-sm font-medium text-white/70">Total</span>
               <span className="text-sm font-semibold text-white/90">{formatINR(billTotal(items))}</span>
             </div>
-            <BillSummary people={people} items={items} payments={bill?.payments ?? []} />
+            <BillSummary
+              people={people}
+              items={items}
+              payments={bill?.payments ?? []}
+              selfId={findSelf(people, user?.email)?.id}
+            />
           </div>
         )}
 

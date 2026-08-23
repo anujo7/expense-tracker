@@ -119,3 +119,28 @@ export function settle(balances: SplitBalance[], payments: SplitPayment[] = []):
 
   return settlements
 }
+
+// One person's standing in a bill, after payments: what they still owe out of
+// their share, and what is still coming back to them.
+export function personPosition(settlements: Settlement[], personId: string) {
+  const sum = (xs: Settlement[], key: 'amount' | 'paid' | 'remaining') =>
+    xs.reduce((a, s) => a + s[key], 0)
+  const owes = settlements.filter((s) => s.from_id === personId)
+  const owed = settlements.filter((s) => s.to_id === personId)
+
+  return {
+    owes: sum(owes, 'amount'),
+    paid: sum(owes, 'paid'),
+    remaining: sum(owes, 'remaining'),
+    getsBack: sum(owed, 'amount'),
+    received: sum(owed, 'paid'),
+    toReceive: sum(owed, 'remaining'),
+  }
+}
+
+// Which person in this bill is the signed-in user, matched on email.
+export function findSelf(people: SplitPerson[], email?: string | null): SplitPerson | undefined {
+  if (!email) return undefined
+  const target = email.trim().toLowerCase()
+  return people.find((p) => p.email?.trim().toLowerCase() === target)
+}
