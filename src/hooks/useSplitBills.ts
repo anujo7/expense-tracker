@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { billTotal, billBalances, settle, itemShares } from '../utils/split'
 import { useAuth } from './useAuth'
 import type { SplitBill, SplitPerson, SplitItem, SplitPayment } from '../types'
 
@@ -92,11 +93,30 @@ export function useSplitBills() {
     return res.ok ? { sent: json.sent as number } : { sent: 0, error: json.error || 'Failed to send' }
   }
 
-  const notifyPeople = (billId: string) => postNotify({ billId })
+  // The API function cannot import the money math (it lives outside api/, so it
+  // is never in the function bundle), so the split is computed here and posted.
+  const computeSplit = (bill: SplitBill) => {
+    const balances = billBalances(bill.people, bill.items)
+    return {
+      total: billTotal(bill.items),
+      balances,
+      settlements: settle(balances, bill.payments ?? []),
+      items: bill.items.map(item => ({
+        label: item.label,
+        amount: item.amount,
+        payer_id: item.payer_id,
+        shares: Object.fromEntries(
+          Object.entries(itemShares(item)).map(([id, paise]) => [id, paise / 100])
+        ),
+      })),
+    }
+  }
+
+  const notifyPeople = (bill: SplitBill) => postNotify({ billId: bill.id, computed: computeSplit(bill) })
 
   // Invite one person: same email, framed as an invitation if they have no account yet.
-  const invitePerson = (billId: string, personId: string) =>
-    postNotify({ billId, personId, invite: true })
+  const invitePerson = (bill: SplitBill, personId: string) =>
+    postNotify({ billId: bill.id, personId, invite: true, computed: computeSplit(bill) })
 
   const deleteBill = async (id: string) => {
     const { error } = await supabase.from('split_bills').delete().eq('id', id)

@@ -1,5 +1,8 @@
 // Single sender used by every report/notification route.
-export async function sendEmail(to: string, subject: string, html: string) {
+// Plain .js on purpose: Vercel compiles each api/*.ts as its own function, so a
+// shared *.ts helper is never emitted and the import blows up at runtime. A real
+// .js file is copied as-is and resolves. Import it with the .js extension.
+export async function sendEmail(to, subject, html) {
   const gmailUser = process.env.GMAIL_USER
   const gmailPass = process.env.GMAIL_APP_PASSWORD
   const brevoKey = process.env.BREVO_API_KEY

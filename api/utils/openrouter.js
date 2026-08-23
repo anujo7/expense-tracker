@@ -1,7 +1,8 @@
+// Plain .js: see api/utils/email.js for why.
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-chat:free'
 
-export async function generateAIInsights(prompt: string): Promise<string | null> {
+export async function generateAIInsights(prompt) {
   if (!OPENROUTER_API_KEY) return null
 
   try {
@@ -33,9 +34,7 @@ export async function generateAIInsights(prompt: string): Promise<string | null>
       return null
     }
 
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[]
-    }
+    const data = await res.json()
     return data.choices?.[0]?.message?.content?.trim() || null
   } catch (err) {
     console.error('OpenRouter failed:', err)

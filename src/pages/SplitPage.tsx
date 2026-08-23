@@ -91,7 +91,7 @@ export function SplitPage() {
       return toast.error('Add an email to at least one person first (edit the bill)')
     }
     setNotifyingId(bill.id)
-    const { sent, error } = await notifyPeople(bill.id)
+    const { sent, error } = await notifyPeople(bill)
     setNotifyingId(null)
     if (error) toast.error(error)
     else toast.success(`Split sent to ${sent} ${sent === 1 ? 'person' : 'people'}`)

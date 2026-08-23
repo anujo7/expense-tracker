@@ -1,7 +1,27 @@
 import { createClient } from '@supabase/supabase-js'
-import { sendEmail } from './utils/email'
-import { billTotal, billBalances, settle, itemShares } from '../src/utils/split'
-import type { SplitBill, SplitPerson } from '../src/types'
+import { sendEmail } from './utils/email.js'
+
+// Shapes are declared locally on purpose: anything imported from ../src is not
+// part of this function's bundle, so it cannot be referenced at runtime. The
+// money math stays client-side and arrives as `computed`.
+interface SplitPerson {
+  id: string
+  name: string
+  email?: string
+}
+interface SplitBill {
+  id: string
+  user_id: string
+  title: string
+  bill_date: string
+  people: SplitPerson[]
+}
+interface Computed {
+  total: number
+  balances: { person_id: string; paid: number; owed: number; net: number }[]
+  settlements: { from_id: string; to_id: string; amount: number; paid: number; remaining: number }[]
+  items: { label: string; amount: number; payer_id: string; shares: Record<string, number> }[]
+}
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -28,23 +48,25 @@ function esc(s: string): string {
   return s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] as string)
 }
 
-function buildHtml(bill: SplitBill, person: SplitPerson, sender: string, invite: boolean, hasAccount: boolean): string {
+function buildHtml(
+  bill: SplitBill,
+  person: SplitPerson,
+  sender: string,
+  invite: boolean,
+  hasAccount: boolean,
+  c: Computed
+): string {
   const nameOf = (id: string) => bill.people.find(p => p.id === id)?.name || '—'
-  const balances = billBalances(bill.people, bill.items)
-  const settlements = settle(balances, bill.payments ?? [])
-  const mine = balances.find(b => b.person_id === person.id)
+  const mine = c.balances.find(b => b.person_id === person.id)
   const net = mine && Math.abs(mine.net) >= 0.005 ? mine.net : 0
-
-  const owes = settlements.filter(s => s.from_id === person.id)
-  const gets = settlements.filter(s => s.to_id === person.id)
 
   const line = (label: string, value: string, color = '#e5e5e5') =>
     `<tr><td style="padding:6px 0;color:#9a9a9a;font-size:14px">${label}</td>
      <td style="padding:6px 0;text-align:right;color:${color};font-size:14px;font-weight:600">${value}</td></tr>`
 
-  const items = bill.items
+  const items = c.items
     .map(item => {
-      const share = (itemShares(item)[person.id] || 0) / 100
+      const share = item.shares[person.id] || 0
       return line(
         `${esc(item.label || 'Item')} <span style="color:#666">(${formatINR(item.amount)}, paid by ${esc(nameOf(item.payer_id))})</span>`,
         share > 0 ? `your share ${formatINR(share)}` : '—',
@@ -53,7 +75,8 @@ function buildHtml(bill: SplitBill, person: SplitPerson, sender: string, invite:
     })
     .join('')
 
-  const owed = [...owes, ...gets]
+  const owed = c.settlements
+    .filter(s => s.from_id === person.id || s.to_id === person.id)
     .map(s => {
       const youPay = s.from_id === person.id
       const label = youPay ? `You → ${esc(nameOf(s.to_id))}` : `${esc(nameOf(s.from_id))} → you`
@@ -71,7 +94,7 @@ function buildHtml(bill: SplitBill, person: SplitPerson, sender: string, invite:
     <p style="margin:0 0 4px;color:#8b5cf6;font-size:12px;letter-spacing:.08em;text-transform:uppercase">${invite ? 'You were added to a split' : 'Split bill'}</p>
     <h1 style="margin:0 0 4px;color:#fff;font-size:22px">${esc(bill.title)}</h1>
     <p style="margin:0 0 20px;color:#666;font-size:13px">
-      ${bill.bill_date} · total ${formatINR(billTotal(bill.items))} · shared by ${esc(sender)}
+      ${bill.bill_date} · total ${formatINR(c.total)} · shared by ${esc(sender)}
     </p>
 
     <p style="margin:0 0 8px;color:#9a9a9a;font-size:13px">Hi ${esc(person.name)}, here's your part:</p>
@@ -115,7 +138,7 @@ export default async function handler(
   req: {
     method?: string
     headers?: Record<string, string | string[] | undefined>
-    body?: { billId?: string; personId?: string; invite?: boolean } | string
+    body?: { billId?: string; personId?: string; invite?: boolean; computed?: Computed } | string
   },
   res: { status: (code: number) => { json: (body: unknown) => void } }
 ) {
@@ -131,7 +154,11 @@ export default async function handler(
   const billId = body.billId
   const onlyPersonId: string | undefined = body.personId
   const invite = Boolean(body.invite)
+  const computed: Computed | undefined = body.computed
   if (!billId) return res.status(400).json({ error: 'billId required' })
+  if (!computed?.balances || !computed.settlements || !computed.items) {
+    return res.status(400).json({ error: 'computed split missing' })
+  }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -167,10 +194,9 @@ export default async function handler(
   const { data: userList } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const accounts = new Set((userList?.users ?? []).map(u => (u.email || '').toLowerCase()))
 
-  const balances = billBalances(bill.people, bill.items)
   const results = []
   for (const person of recipients) {
-    const net = balances.find(b => b.person_id === person.id)?.net ?? 0
+    const net = computed.balances.find(b => b.person_id === person.id)?.net ?? 0
     const subject =
       Math.abs(net) < 0.005
         ? `${bill.title} — you're all settled`
@@ -181,7 +207,7 @@ export default async function handler(
     const result = await sendEmail(
       person.email as string,
       invite ? `${sender} added you to "${bill.title}"` : subject,
-      buildHtml(bill, person, sender, invite, hasAccount)
+      buildHtml(bill, person, sender, invite, hasAccount, computed)
     )
     results.push({ email: person.email, hasAccount, ...result })
   }

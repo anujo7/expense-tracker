@@ -208,7 +208,7 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
   const sendInvite = async (person: SplitPerson) => {
     if (!bill) return
     setInviting(person.id)
-    const { error } = await invitePerson(bill.id, person.id)
+    const { error } = await invitePerson(bill, person.id)
     setInviting(null)
     if (error) toast.error(error)
     else toast.success(`Invite sent to ${person.email}`)
@@ -269,7 +269,7 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     )
     if (fresh.length === 0) return
 
-    const sent = await Promise.all(fresh.map(p => invitePerson(data.id, p.id)))
+    const sent = await Promise.all(fresh.map(p => invitePerson(data, p.id)))
     const ok = sent.filter(r => !r.error).length
     if (ok > 0) toast.success(`Invited ${ok} ${ok === 1 ? 'friend' : 'friends'} by email`)
     if (ok < fresh.length) toast.error(`Could not invite ${fresh.length - ok} of them`)

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { sendEmail } from './utils/email'
-import { generateAIInsights } from './utils/openrouter'
+import { sendEmail } from './utils/email.js'
+import { generateAIInsights } from './utils/openrouter.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
