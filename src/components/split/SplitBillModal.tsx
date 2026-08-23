@@ -162,7 +162,7 @@ export function BillSummary({
 }
 
 export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModalProps) {
-  const { addBill, updateBill, invitePerson } = useSplitBills()
+  const { addBill, updateBill, invitePerson, searchPeople } = useSplitBills()
   const { user } = useAuth()
   const [title, setTitle] = useState('')
   const [billDate, setBillDate] = useState(todayStr())
@@ -171,6 +171,7 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
   const [newPersonName, setNewPersonName] = useState('')
   const [loading, setLoading] = useState(false)
   const [inviting, setInviting] = useState<string | null>(null)
+  const [matches, setMatches] = useState<{ email: string; display_name: string }[]>([])
 
   useEffect(() => {
     if (!isOpen) return
@@ -192,6 +193,27 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     }
     setNewPersonName('')
   }, [isOpen, bill, user?.email])
+
+  // Suggest registered users as you type, so an email rarely has to be typed out.
+  useEffect(() => {
+    const q = newPersonName.trim()
+    const timer = setTimeout(async () => {
+      if (q.length < 2) {
+        setMatches([])
+        return
+      }
+      const found = await searchPeople(q)
+      setMatches(found.filter(m => !people.some(p => p.email?.toLowerCase() === m.email.toLowerCase())))
+    }, 250)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newPersonName, people])
+
+  const addKnownPerson = (match: { email: string; display_name: string }) => {
+    setPeople(prev => [...prev, { id: crypto.randomUUID(), name: match.display_name, email: match.email }])
+    setNewPersonName('')
+    setMatches([])
+  }
 
   const addPerson = () => {
     const name = newPersonName.trim()
@@ -296,23 +318,46 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
 
         <div>
           <label className="block text-sm font-medium text-white/50 mb-2">People</label>
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={newPersonName}
-              onChange={e => setNewPersonName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addPerson()
-                }
-              }}
-              placeholder="Add a person"
-              className="flex-1 min-w-0 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white/90 placeholder-white/20 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
-            />
-            <Button type="button" variant="secondary" onClick={addPerson}>
-              Add
-            </Button>
+          <div className="relative mb-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newPersonName}
+                onChange={e => setNewPersonName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    // A single match is almost always the one you meant.
+                    if (matches.length === 1) addKnownPerson(matches[0])
+                    else addPerson()
+                  }
+                  if (e.key === 'Escape') setMatches([])
+                }}
+                placeholder="Name, or start typing to find a user"
+                autoComplete="off"
+                className="flex-1 min-w-0 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white/90 placeholder-white/20 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
+              />
+              <Button type="button" variant="secondary" onClick={addPerson}>
+                Add
+              </Button>
+            </div>
+
+            {matches.length > 0 && (
+              <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-white/[0.12] bg-[#141416] shadow-2xl shadow-black/60">
+                {matches.map(m => (
+                  <li key={m.email}>
+                    <button
+                      type="button"
+                      onClick={() => addKnownPerson(m)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-white/[0.06] focus:bg-white/[0.06] focus:outline-none transition-colors duration-150"
+                    >
+                      <span className="text-sm text-white/90 truncate">{m.display_name}</span>
+                      <span className="text-xs text-white/35 truncate">{m.email}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="space-y-1.5">
             {people.map(p => (

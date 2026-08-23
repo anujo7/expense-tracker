@@ -106,3 +106,33 @@ exception
   when duplicate_object then null;
 end
 $$;
+
+-- ============================================
+-- People picker: look up registered users by name/email prefix so a bill can be
+-- shared without typing addresses by hand.
+-- security definer because auth.users is not readable by the client; the query
+-- is a prefix match, capped at 8 rows, min 2 characters, and never returns the
+-- caller. Anyone signed in can therefore discover an address by guessing its
+-- first letters — acceptable for a friends-and-family app, not for a public one.
+-- ============================================
+create or replace function public.search_app_users(q text)
+returns table (email text, display_name text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    u.email::text,
+    coalesce(nullif(u.raw_user_meta_data ->> 'name', ''), split_part(u.email::text, '@', 1)) as display_name
+  from auth.users u
+  where u.email is not null
+    and length(coalesce(q, '')) >= 2
+    and u.id <> auth.uid()
+    and (u.email ilike q || '%' or split_part(u.email::text, '@', 1) ilike q || '%')
+  order by u.email
+  limit 8;
+$$;
+
+revoke all on function public.search_app_users(text) from public, anon;
+grant execute on function public.search_app_users(text) to authenticated;

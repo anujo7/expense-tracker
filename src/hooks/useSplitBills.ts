@@ -130,11 +130,19 @@ export function useSplitBills() {
   const invitePerson = (bill: SplitBill, personId: string) =>
     postNotify({ billId: bill.id, personId, invite: true, computed: computeSplit(bill) })
 
+  // Registered users matching what you have typed, for the people picker.
+  const searchPeople = async (q: string) => {
+    if (q.trim().length < 2) return []
+    const { data, error } = await supabase.rpc('search_app_users', { q: q.trim() })
+    if (error) return []
+    return (data ?? []) as { email: string; display_name: string }[]
+  }
+
   const deleteBill = async (id: string) => {
     const { error } = await supabase.from('split_bills').delete().eq('id', id)
     if (!error) setBills(prev => prev.filter(b => b.id !== id))
     return { error }
   }
 
-  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, notifyPeople, invitePerson, refetch: fetchBills }
+  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, notifyPeople, invitePerson, searchPeople, refetch: fetchBills }
 }
