@@ -1,4 +1,4 @@
-import type { SplitItem, SplitPerson, SplitBalance, Settlement } from '../types'
+import type { SplitItem, SplitPerson, SplitBalance, Settlement, SplitPayment } from '../types'
 
 // All math here is done in integer paise to avoid floating point drift, then
 // converted back to rupees at the edges.
@@ -73,7 +73,7 @@ export function billBalances(people: SplitPerson[], items: SplitItem[]): SplitBa
   }))
 }
 
-export function settle(balances: SplitBalance[]): Settlement[] {
+export function settle(balances: SplitBalance[], payments: SplitPayment[] = []): Settlement[] {
   const debtors = balances
     .filter((b) => b.net < 0)
     .map((b) => ({ id: b.person_id, amount: -Math.round(b.net * 100) }))
@@ -82,6 +82,13 @@ export function settle(balances: SplitBalance[]): Settlement[] {
     .filter((b) => b.net > 0)
     .map((b) => ({ id: b.person_id, amount: Math.round(b.net * 100) }))
     .sort((a, b) => b.amount - a.amount)
+
+  // Money already handed over, in paise, keyed by "from>to".
+  const settledPaise: Record<string, number> = {}
+  for (const p of payments) {
+    const key = `${p.from_id}>${p.to_id}`
+    settledPaise[key] = (settledPaise[key] || 0) + Math.round(p.amount * 100)
+  }
 
   const settlements: Settlement[] = []
   let i = 0
@@ -92,7 +99,16 @@ export function settle(balances: SplitBalance[]): Settlement[] {
     const amount = Math.min(debtor.amount, creditor.amount)
 
     if (amount >= 1) {
-      settlements.push({ from_id: debtor.id, to_id: creditor.id, amount: amount / 100 })
+      const key = `${debtor.id}>${creditor.id}`
+      const paid = Math.min(settledPaise[key] || 0, amount)
+      settledPaise[key] = (settledPaise[key] || 0) - paid
+      settlements.push({
+        from_id: debtor.id,
+        to_id: creditor.id,
+        amount: amount / 100,
+        paid: paid / 100,
+        remaining: (amount - paid) / 100,
+      })
     }
 
     debtor.amount -= amount

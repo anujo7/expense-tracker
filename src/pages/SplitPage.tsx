@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Users, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Users, Pencil, Trash2, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ListSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -13,11 +13,12 @@ import { formatINR, formatDate } from '../utils/format'
 import type { SplitBill } from '../types'
 
 export function SplitPage() {
-  const { bills, loading, deleteBill, refetch } = useSplitBills()
+  const { bills, loading, deleteBill, recordPayment, notifyPeople, refetch } = useSplitBills()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBill, setEditingBill] = useState<SplitBill | null>(null)
   const [deletingBill, setDeletingBill] = useState<SplitBill | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [notifyingId, setNotifyingId] = useState<string | null>(null)
 
   const total = useMemo(() => bills.reduce((sum, b) => sum + billTotal(b.items), 0), [bills])
 
@@ -42,6 +43,17 @@ export function SplitPage() {
       toast.success('Bill deleted')
     }
     setDeletingBill(null)
+  }
+
+  const handleNotify = async (bill: SplitBill) => {
+    if (!bill.people.some(p => p.email)) {
+      return toast.error('Add an email to at least one person first (edit the bill)')
+    }
+    setNotifyingId(bill.id)
+    const { sent, error } = await notifyPeople(bill.id)
+    setNotifyingId(null)
+    if (error) toast.error(error)
+    else toast.success(`Split sent to ${sent} ${sent === 1 ? 'person' : 'people'}`)
   }
 
   return (
@@ -93,6 +105,14 @@ export function SplitPage() {
                     {formatINR(billTotal(bill.items))}
                   </span>
                   <button
+                    onClick={() => handleNotify(bill)}
+                    disabled={notifyingId === bill.id}
+                    title="Email the split to everyone"
+                    className="p-1.5 rounded-lg text-white/30 hover:text-violet-300 hover:bg-violet-500/10 transition-all duration-200 disabled:opacity-40"
+                  >
+                    <Send size={14} />
+                  </button>
+                  <button
                     onClick={() => openEdit(bill)}
                     className="p-1.5 rounded-lg text-white/30 hover:text-white/80 hover:bg-white/[0.05] transition-all duration-200"
                   >
@@ -107,7 +127,12 @@ export function SplitPage() {
                 </div>
               </div>
 
-              <BillSummary people={bill.people} items={bill.items} />
+              <BillSummary
+                people={bill.people}
+                items={bill.items}
+                payments={bill.payments}
+                onPay={(from_id, to_id, amount) => recordPayment(bill, { from_id, to_id, amount })}
+              />
             </div>
           ))}
         </div>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
-import type { SplitBill, SplitPerson, SplitItem } from '../types'
+import type { SplitBill, SplitPerson, SplitItem, SplitPayment } from '../types'
 
 export interface SplitBillInput {
   title: string
@@ -24,7 +24,7 @@ export function useSplitBills() {
       .eq('user_id', user.id)
       .order('bill_date', { ascending: false })
 
-    if (!error && data) setBills(data)
+    if (!error && data) setBills(data.map(b => ({ ...b, payments: b.payments ?? [] })))
     setLoading(false)
   }, [user])
 
@@ -58,11 +58,44 @@ export function useSplitBills() {
     return { data, error }
   }
 
+  const setPayments = async (billId: string, payments: SplitPayment[]) => {
+    const { data, error } = await supabase
+      .from('split_bills')
+      .update({ payments })
+      .eq('id', billId)
+      .select()
+      .single()
+
+    if (!error && data) setBills(prev => prev.map(b => (b.id === billId ? data : b)))
+    return { error }
+  }
+
+  const recordPayment = (bill: SplitBill, payment: Omit<SplitPayment, 'id' | 'paid_on'>) =>
+    setPayments(bill.id, [
+      ...(bill.payments ?? []),
+      { ...payment, id: crypto.randomUUID(), paid_on: new Date().toISOString().slice(0, 10) },
+    ])
+
+  const removePayment = (bill: SplitBill, paymentId: string) =>
+    setPayments(bill.id, (bill.payments ?? []).filter(p => p.id !== paymentId))
+
+  const notifyPeople = async (billId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return { sent: 0, error: 'Not authenticated' }
+    const res = await fetch('/api/split-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ billId }),
+    })
+    const body = await res.json().catch(() => ({}))
+    return res.ok ? { sent: body.sent as number } : { sent: 0, error: body.error || 'Failed to send' }
+  }
+
   const deleteBill = async (id: string) => {
     const { error } = await supabase.from('split_bills').delete().eq('id', id)
     if (!error) setBills(prev => prev.filter(b => b.id !== id))
     return { error }
   }
 
-  return { bills, loading, addBill, updateBill, deleteBill, refetch: fetchBills }
+  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, removePayment, notifyPeople, refetch: fetchBills }
 }

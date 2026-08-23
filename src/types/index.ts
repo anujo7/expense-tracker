@@ -74,6 +74,15 @@ export interface SpendingSummary {
 export interface SplitPerson {
   id: string
   name: string
+  email?: string
+}
+
+export interface SplitPayment {
+  id: string
+  from_id: string
+  to_id: string
+  amount: number
+  paid_on: string
 }
 
 export type SplitMode = 'equal' | 'exact'
@@ -95,6 +104,7 @@ export interface SplitBill {
   bill_date: string
   people: SplitPerson[]
   items: SplitItem[]
+  payments: SplitPayment[]
   created_at: string
 }
 
@@ -109,4 +119,6 @@ export interface Settlement {
   from_id: string
   to_id: string
   amount: number
+  paid: number
+  remaining: number
 }

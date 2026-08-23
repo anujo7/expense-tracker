@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -19,7 +20,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     return () => { document.body.style.overflow = '' }
   }, [isOpen])
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
@@ -31,7 +32,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             onClick={onClose}
           />
           <motion.div
-            className="relative w-full sm:max-w-lg backdrop-blur-2xl bg-[#111113]/95 border border-white/[0.1] rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/60"
+            className="relative w-full sm:max-w-lg backdrop-blur-2xl bg-[#111113]/95 border border-white/[0.1] rounded-t-2xl sm:rounded-2xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-6 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/60"
             initial={{ opacity: 0, y: 100, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.95 }}
@@ -50,6 +51,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

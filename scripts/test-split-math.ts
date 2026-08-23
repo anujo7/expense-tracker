@@ -185,3 +185,30 @@ for (let iter = 0; iter < 200; iter++) {
 }
 
 console.log('split math OK')
+
+// 8. Partial payments: A owes B ₹1000, has handed over ₹400 -> ₹600 left.
+{
+  const people = [
+    { id: 'a', name: 'Anuj' },
+    { id: 'b', name: 'Charchit' },
+  ]
+  const items: SplitItem[] = [
+    { id: 'i8', label: 'dinner', amount: 2000, payer_id: 'b', mode: 'equal', participant_ids: ['a', 'b'], exact: {} },
+  ]
+  const balances = billBalances(people, items)
+  const none = settle(balances)
+  assert.deepEqual(none, [{ from_id: 'a', to_id: 'b', amount: 1000, paid: 0, remaining: 1000 }])
+
+  const partial = settle(balances, [{ id: 'p1', from_id: 'a', to_id: 'b', amount: 400, paid_on: '2026-08-24' }])
+  assert.deepEqual(partial, [{ from_id: 'a', to_id: 'b', amount: 1000, paid: 400, remaining: 600 }])
+
+  // Overpayment never goes negative.
+  const over = settle(balances, [{ id: 'p2', from_id: 'a', to_id: 'b', amount: 1500, paid_on: '2026-08-24' }])
+  assert.deepEqual(over, [{ from_id: 'a', to_id: 'b', amount: 1000, paid: 1000, remaining: 0 }])
+
+  // A payment in the wrong direction does not cancel the debt.
+  const wrongWay = settle(balances, [{ id: 'p3', from_id: 'b', to_id: 'a', amount: 400, paid_on: '2026-08-24' }])
+  assert.equal(wrongWay[0].remaining, 1000)
+}
+
+console.log('split payments OK')

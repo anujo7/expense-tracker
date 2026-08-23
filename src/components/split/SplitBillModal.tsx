@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, X, Trash2 } from 'lucide-react'
+import { Plus, X, Trash2, Check } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { useSplitBills } from '../../hooks/useSplitBills'
 import { billTotal, billBalances, settle, itemShares } from '../../utils/split'
 import { formatINR } from '../../utils/format'
-import type { SplitBill, SplitPerson, SplitItem, SplitMode } from '../../types'
+import type { SplitBill, SplitPerson, SplitItem, SplitMode, SplitPayment } from '../../types'
 
 interface SplitBillModalProps {
   isOpen: boolean
@@ -24,10 +24,30 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function BillSummary({ people, items }: { people: SplitPerson[]; items: SplitItem[] }) {
+export function BillSummary({
+  people,
+  items,
+  payments = [],
+  onPay,
+}: {
+  people: SplitPerson[]
+  items: SplitItem[]
+  payments?: SplitPayment[]
+  onPay?: (from_id: string, to_id: string, amount: number) => void | Promise<unknown>
+}) {
+  const [payingKey, setPayingKey] = useState<string | null>(null)
+  const [payAmount, setPayAmount] = useState('')
   const balances = billBalances(people, items)
-  const settlements = settle(balances)
+  const settlements = settle(balances, payments)
   const nameOf = (id: string) => people.find(p => p.id === id)?.name || '—'
+
+  const submitPay = async (from: string, to: string, max: number) => {
+    const amount = Math.min(parseFloat(payAmount) || 0, max)
+    if (amount <= 0) return
+    await onPay?.(from, to, amount)
+    setPayingKey(null)
+    setPayAmount('')
+  }
 
   return (
     <div className="space-y-2">
@@ -49,12 +69,76 @@ export function BillSummary({ people, items }: { people: SplitPerson[]; items: S
         })}
       </div>
       {settlements.length > 0 && (
-        <div className="pt-2 mt-2 border-t border-white/[0.06] space-y-1">
-          {settlements.map((s, i) => (
-            <div key={i} className="text-xs text-white/40">
-              {nameOf(s.from_id)} → {nameOf(s.to_id)} <span className="text-white/70">{formatINR(s.amount)}</span>
-            </div>
-          ))}
+        <div className="pt-2 mt-2 border-t border-white/[0.06] space-y-2">
+          {settlements.map(s => {
+            const key = `${s.from_id}>${s.to_id}`
+            const done = s.remaining < 0.005
+            return (
+              <div key={key} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-white/40 truncate">
+                    {nameOf(s.from_id)} → {nameOf(s.to_id)}{' '}
+                    <span className={done ? 'text-emerald-400' : 'text-white/70'}>{formatINR(s.amount)}</span>
+                  </span>
+                  {onPay && !done && payingKey !== key && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayingKey(key)
+                        setPayAmount(s.remaining.toFixed(2))
+                      }}
+                      className="shrink-0 text-xs text-violet-300 hover:text-violet-200"
+                    >
+                      Settle up
+                    </button>
+                  )}
+                </div>
+                {s.paid > 0 || done ? (
+                  <div className="text-[11px] text-white/30">
+                    paid {formatINR(s.paid)} ·{' '}
+                    {done ? (
+                      <span className="text-emerald-400">fully settled</span>
+                    ) : (
+                      <span className="text-amber-400">{formatINR(s.remaining)} left</span>
+                    )}
+                  </div>
+                ) : null}
+                {payingKey === key && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      autoFocus
+                      value={payAmount}
+                      onChange={e => setPayAmount(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          submitPay(s.from_id, s.to_id, s.remaining)
+                        }
+                      }}
+                      className="w-24 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 py-1 text-xs text-white/90 focus:outline-none focus:border-violet-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => submitPay(s.from_id, s.to_id, s.remaining)}
+                      className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayingKey(null)}
+                      className="p-1.5 rounded-lg text-white/30 hover:text-white/70"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -176,17 +260,27 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
               Add
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-1.5">
             {people.map(p => (
-              <span
-                key={p.id}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-violet-500/50 bg-violet-500/10 text-violet-300"
-              >
-                {p.name}
-                <button type="button" onClick={() => removePerson(p.id)} className="text-violet-300/60 hover:text-white">
-                  <X size={12} />
+              <div key={p.id} className="flex items-center gap-2">
+                <span className="w-24 shrink-0 truncate text-xs font-medium text-violet-300">{p.name}</span>
+                <input
+                  type="email"
+                  value={p.email ?? ''}
+                  onChange={e =>
+                    setPeople(prev => prev.map(x => (x.id === p.id ? { ...x, email: e.target.value.trim() } : x)))
+                  }
+                  placeholder="email (optional, to notify)"
+                  className="flex-1 min-w-0 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white/90 placeholder-white/20 focus:outline-none focus:border-violet-500/50 transition-all duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => removePerson(p.id)}
+                  className="shrink-0 p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                >
+                  <X size={14} />
                 </button>
-              </span>
+              </div>
             ))}
           </div>
         </div>
@@ -344,7 +438,7 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
               <span className="text-sm font-medium text-white/70">Total</span>
               <span className="text-sm font-semibold text-white/90">{formatINR(billTotal(items))}</span>
             </div>
-            <BillSummary people={people} items={items} />
+            <BillSummary people={people} items={items} payments={bill?.payments ?? []} />
           </div>
         )}
 
