@@ -242,3 +242,28 @@ console.log('split payments OK')
 }
 
 console.log('personal position OK')
+
+// 10. The "Kasa in @ goa" case: ₹10,500 share, ₹9,800 handed over. Every figure
+// the email and the app show must be ₹700 left — never the untouched ₹10,500.
+{
+  const people: SplitPerson[] = [
+    { id: 'me', name: 'Anuj', email: 'anujparashar07@gmail.com' },
+    { id: 'c', name: 'Charchit' },
+  ]
+  const items: SplitItem[] = [
+    { id: 'i10', label: 'goa', amount: 42000, payer_id: 'c', mode: 'exact', participant_ids: ['me', 'c'], exact: { me: 10500, c: 31500 } },
+  ]
+  const balances = billBalances(people, items)
+  const settlements = settle(balances, [
+    { id: 'p1', from_id: 'me', to_id: 'c', amount: 9800, paid_on: '2026-08-19' },
+  ])
+  const me = personPosition(settlements, 'me')
+
+  assert.equal(me.owes, 10500)   // the share itself is unchanged
+  assert.equal(me.paid, 9800)
+  assert.equal(me.remaining, 700) // what "You owe" must say
+  assert.equal(balances.find(b => b.person_id === 'me')?.net, -10500) // raw balance still ignores payments...
+  assert.notEqual(me.remaining, -(balances.find(b => b.person_id === 'me')?.net ?? 0)) // ...so never headline it
+}
+
+console.log('paid-down balance OK')

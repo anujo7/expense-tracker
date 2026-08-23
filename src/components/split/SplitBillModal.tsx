@@ -6,7 +6,7 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { useSplitBills } from '../../hooks/useSplitBills'
 import { useAuth } from '../../hooks/useAuth'
-import { billTotal, billBalances, settle, itemShares, findSelf } from '../../utils/split'
+import { billTotal, billBalances, settle, itemShares, findSelf, personPosition } from '../../utils/split'
 import { formatINR } from '../../utils/format'
 import type { SplitBill, SplitPerson, SplitItem, SplitMode, SplitPayment } from '../../types'
 
@@ -56,18 +56,29 @@ export function BillSummary({
     <div className="space-y-2">
       <div className="space-y-1">
         {balances.map(b => {
-          const net = Math.abs(b.net) < 0.005 ? 0 : b.net
+          // After payments, so this agrees with the transfer rows below.
+          const pos = personPosition(settlements, b.person_id)
           return (
             <div key={b.person_id} className="flex items-center justify-between text-sm">
               <span className={b.person_id === selfId ? 'text-white font-medium' : 'text-white/70'}>
                 {nameOf(b.person_id)}
               </span>
-              {net === 0 ? (
-                <span className="text-white/30">settled</span>
-              ) : net > 0 ? (
-                <span className="text-emerald-400">{formatINR(Math.abs(net))} gets back</span>
+              {pos.remaining >= 0.005 ? (
+                <span className="text-red-400">
+                  {formatINR(pos.remaining)} owes
+                  {pos.paid >= 0.005 && (
+                    <span className="text-white/30"> · {formatINR(pos.paid)} paid</span>
+                  )}
+                </span>
+              ) : pos.toReceive >= 0.005 ? (
+                <span className="text-emerald-400">
+                  {formatINR(pos.toReceive)} gets back
+                  {pos.received >= 0.005 && (
+                    <span className="text-white/30"> · {formatINR(pos.received)} received</span>
+                  )}
+                </span>
               ) : (
-                <span className="text-red-400">{formatINR(Math.abs(net))} owes</span>
+                <span className="text-white/30">settled</span>
               )}
             </div>
           )

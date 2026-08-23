@@ -48,7 +48,7 @@ function esc(s: string): string {
   return s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] as string)
 }
 
-function buildHtml(
+export function buildHtml(
   bill: SplitBill,
   person: SplitPerson,
   sender: string,
@@ -58,7 +58,19 @@ function buildHtml(
 ): string {
   const nameOf = (id: string) => bill.people.find(p => p.id === id)?.name || '—'
   const mine = c.balances.find(b => b.person_id === person.id)
-  const net = mine && Math.abs(mine.net) >= 0.005 ? mine.net : 0
+  const share = mine?.owed ?? 0
+  const fronted = mine?.paid ?? 0
+
+  // Everything below is *after* recorded payments: the headline has to agree
+  // with the transfer rows, so both come from the same settlement figures.
+  const sum = (rows: Computed['settlements'], key: 'amount' | 'paid' | 'remaining') =>
+    rows.reduce((a, r) => a + r[key], 0)
+  const outgoing = c.settlements.filter(s => s.from_id === person.id)
+  const incoming = c.settlements.filter(s => s.to_id === person.id)
+  const stillOwe = sum(outgoing, 'remaining')
+  const alreadyPaid = sum(outgoing, 'paid')
+  const stillOwed = sum(incoming, 'remaining')
+  const alreadyGot = sum(incoming, 'paid')
 
   const line = (label: string, value: string, color = '#e5e5e5') =>
     `<tr><td style="padding:6px 0;color:#9a9a9a;font-size:14px">${label}</td>
@@ -99,11 +111,19 @@ function buildHtml(
 
     <p style="margin:0 0 8px;color:#9a9a9a;font-size:13px">Hi ${esc(person.name)}, here's your part:</p>
     <div style="background:#18181b;border-radius:12px;padding:14px;margin-bottom:16px">
-      <p style="margin:0;color:${net < 0 ? '#f87171' : net > 0 ? '#34d399' : '#9a9a9a'};font-size:20px;font-weight:700">
-        ${net === 0 ? 'All settled' : net < 0 ? `You owe ${formatINR(-net)}` : `You get back ${formatINR(net)}`}
+      <p style="margin:0;color:${stillOwe >= 0.005 ? '#f87171' : stillOwed >= 0.005 ? '#34d399' : '#34d399'};font-size:20px;font-weight:700">
+        ${
+          stillOwe >= 0.005
+            ? `You owe ${formatINR(stillOwe)}`
+            : stillOwed >= 0.005
+              ? `You get back ${formatINR(stillOwed)}`
+              : 'All settled'
+        }
       </p>
       <p style="margin:4px 0 0;color:#666;font-size:12px">
-        your share ${formatINR(mine?.owed ?? 0)} · you paid ${formatINR(mine?.paid ?? 0)}
+        your share ${formatINR(share)}${alreadyPaid >= 0.005 ? ` · ${formatINR(alreadyPaid)} already settled` : ''}${
+          fronted >= 0.005 ? ` · you paid ${formatINR(fronted)} of the bill` : ''
+        }${alreadyGot >= 0.005 ? ` · ${formatINR(alreadyGot)} received back` : ''}
       </p>
     </div>
 
@@ -196,13 +216,18 @@ export default async function handler(
 
   const results = []
   for (const person of recipients) {
-    const net = computed.balances.find(b => b.person_id === person.id)?.net ?? 0
+    const owes = computed.settlements
+      .filter(s => s.from_id === person.id)
+      .reduce((a, s) => a + s.remaining, 0)
+    const owed = computed.settlements
+      .filter(s => s.to_id === person.id)
+      .reduce((a, s) => a + s.remaining, 0)
     const subject =
-      Math.abs(net) < 0.005
-        ? `${bill.title} — you're all settled`
-        : net < 0
-          ? `${bill.title} — you owe ${formatINR(-net)}`
-          : `${bill.title} — you get back ${formatINR(net)}`
+      owes >= 0.005
+        ? `${bill.title} — you owe ${formatINR(owes)}`
+        : owed >= 0.005
+          ? `${bill.title} — you get back ${formatINR(owed)}`
+          : `${bill.title} — you're all settled`
     const hasAccount = accounts.has((person.email as string).toLowerCase())
     const result = await sendEmail(
       person.email as string,
