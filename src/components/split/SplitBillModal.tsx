@@ -17,8 +17,18 @@ interface SplitBillModalProps {
   onSaved?: () => void
 }
 
-function emptyItem(): SplitItem {
-  return { id: crypto.randomUUID(), label: '', amount: 0, payer_id: '', mode: 'equal', participant_ids: [], exact: {} }
+function emptyItem(peopleIds: string[] = []): SplitItem {
+  // Default to splitting between everyone: an item with nobody selected is
+  // charged entirely to its payer, which nets to zero and reads as "settled".
+  return {
+    id: crypto.randomUUID(),
+    label: '',
+    amount: 0,
+    payer_id: '',
+    mode: 'equal',
+    participant_ids: [...peopleIds],
+    exact: {},
+  }
 }
 
 function todayStr(): string {
@@ -162,10 +172,11 @@ export function BillSummary({
 }
 
 export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModalProps) {
-  const { addBill, updateBill, invitePerson, searchPeople } = useSplitBills()
+  const { bills, addBill, updateBill, invitePerson, searchPeople } = useSplitBills()
   const { user } = useAuth()
   const [title, setTitle] = useState('')
   const [billDate, setBillDate] = useState(todayStr())
+  const [trip, setTrip] = useState('')
   const [people, setPeople] = useState<SplitPerson[]>([])
   const [items, setItems] = useState<SplitItem[]>([])
   const [newPersonName, setNewPersonName] = useState('')
@@ -178,18 +189,19 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     if (bill) {
       setTitle(bill.title)
       setBillDate(bill.bill_date.slice(0, 10))
+      setTrip(bill.trip ?? '')
       setPeople(bill.people)
       setItems(bill.items)
     } else {
       setTitle('')
       setBillDate(todayStr())
+      setTrip('')
       // Put yourself on the bill by default so the app can recognise your share.
-      setPeople(
-        user?.email
-          ? [{ id: crypto.randomUUID(), name: user.email.split('@')[0], email: user.email }]
-          : []
-      )
-      setItems([emptyItem()])
+      const self = user?.email
+        ? [{ id: crypto.randomUUID(), name: user.email.split('@')[0], email: user.email }]
+        : []
+      setPeople(self)
+      setItems([emptyItem(self.map(p => p.id))])
     }
     setNewPersonName('')
   }, [isOpen, bill, user?.email])
@@ -209,17 +221,31 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newPersonName, people])
 
-  const addKnownPerson = (match: { email: string; display_name: string }) => {
-    setPeople(prev => [...prev, { id: crypto.randomUUID(), name: match.display_name, email: match.email }])
+  // Joining a person to the bill also joins them to every item that is currently
+  // split between everyone — otherwise items added earlier quietly exclude them
+  // and the bill nets to zero, which reads as "settled".
+  const addPersonRecord = (person: SplitPerson) => {
+    const splitByEveryone = (ids: string[]) =>
+      ids.length === people.length && people.every(p => ids.includes(p.id))
+    setItems(prev =>
+      prev.map(item =>
+        splitByEveryone(item.participant_ids)
+          ? { ...item, participant_ids: [...item.participant_ids, person.id] }
+          : item
+      )
+    )
+    setPeople(prev => [...prev, person])
     setNewPersonName('')
     setMatches([])
   }
 
+  const addKnownPerson = (match: { email: string; display_name: string }) =>
+    addPersonRecord({ id: crypto.randomUUID(), name: match.display_name, email: match.email })
+
   const addPerson = () => {
     const name = newPersonName.trim()
     if (!name) return
-    setPeople(prev => [...prev, { id: crypto.randomUUID(), name }])
-    setNewPersonName('')
+    addPersonRecord({ id: crypto.randomUUID(), name })
   }
 
   const removePerson = (id: string) => {
@@ -236,6 +262,8 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     )
   }
 
+  const knownTrips = [...new Set(bills.map(b => b.trip).filter((t): t is string => !!t))].sort()
+
   const savedEmailOf = (personId: string) => bill?.people.find(p => p.id === personId)?.email || ''
 
   const sendInvite = async (person: SplitPerson) => {
@@ -247,7 +275,7 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     else toast.success(`Invite sent to ${person.email}`)
   }
 
-  const addItem = () => setItems(prev => [...prev, emptyItem()])
+  const addItem = () => setItems(prev => [...prev, emptyItem(people.map(p => p.id))])
   const removeItem = (id: string) => setItems(prev => prev.filter(i => i.id !== id))
   const updateItem = (id: string, patch: Partial<SplitItem>) =>
     setItems(prev => prev.map(i => (i.id === id ? { ...i, ...patch } : i)))
@@ -272,10 +300,13 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
     for (const item of items) {
       if (!item.amount || item.amount <= 0) return toast.error('Each item needs an amount')
       if (!item.payer_id) return toast.error('Each item needs a payer')
+      if (item.participant_ids.length === 0) {
+        return toast.error(`"${item.label || 'Item'}" isn't split between anyone — tap All`)
+      }
     }
 
     setLoading(true)
-    const input = { title: title.trim(), bill_date: billDate, people, items }
+    const input = { title: title.trim(), bill_date: billDate, trip: trip.trim() || null, people, items }
     const { data, error } = bill ? await updateBill(bill.id, input) : await addBill(input)
     setLoading(false)
 
@@ -314,6 +345,21 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input label="Title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Dinner at..." />
           <Input label="Date" type="date" value={billDate} onChange={e => setBillDate(e.target.value)} />
+          <div className="sm:col-span-2">
+            <Input
+              label="Trip (optional)"
+              value={trip}
+              onChange={e => setTrip(e.target.value)}
+              placeholder="Goa, Manali..."
+              list="split-trips"
+            />
+            {/* native picker over trips you have already used — no new entity to manage */}
+            <datalist id="split-trips">
+              {knownTrips.map(t => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+          </div>
         </div>
 
         <div>
@@ -527,7 +573,7 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
                       </p>
                     </div>
                   ) : (
-                    item.participant_ids.length > 0 && (
+                    (item.participant_ids.length > 0 ? (
                       <div className="space-y-0.5">
                         {item.participant_ids.map(pid => (
                           <p key={pid} className="text-xs text-white/30">
@@ -535,7 +581,11 @@ export function SplitBillModal({ isOpen, onClose, bill, onSaved }: SplitBillModa
                           </p>
                         ))}
                       </div>
-                    )
+                    ) : (
+                      <p className="text-xs text-amber-400/80">
+                        Nobody selected — this would be charged entirely to whoever paid.
+                      </p>
+                    ))
                   )}
                 </div>
               )

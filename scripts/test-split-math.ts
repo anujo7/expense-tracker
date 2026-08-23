@@ -1,8 +1,8 @@
 // Framework-free correctness check for src/utils/split.ts money math.
 // Usage: npx tsx scripts/test-split-math.ts
 import assert from 'node:assert/strict'
-import { itemShares, billBalances, settle, personPosition, findSelf } from '../src/utils/split'
-import type { SplitPerson, SplitItem } from '../src/types'
+import { itemShares, billBalances, settle, personPosition, findSelf, myTotalPosition } from '../src/utils/split'
+import type { SplitPerson, SplitItem, SplitPayment } from '../src/types'
 
 // 1. Equal ₹100 among 3
 {
@@ -267,3 +267,61 @@ console.log('personal position OK')
 }
 
 console.log('paid-down balance OK')
+
+// 11. The "everything says settled" trap: an item nobody is split between is
+// charged entirely to its payer, so every balance nets to zero. The editor now
+// prevents saving one, but the math is pinned here so the behaviour is explicit.
+{
+  const people: SplitPerson[] = [
+    { id: 'me', name: 'Anuj' },
+    { id: 'c', name: 'Charchit' },
+  ]
+  const orphan: SplitItem = {
+    id: 'i11', label: 'dinner', amount: 4000, payer_id: 'me', mode: 'equal', participant_ids: [], exact: {},
+  }
+  const balances = billBalances(people, [orphan])
+  assert.deepEqual(balances.map(b => b.net), [0, 0])
+  assert.deepEqual(settle(balances), []) // nothing to settle -> the UI reads "settled"
+
+  // With participants set, the same item splits properly.
+  const shared = { ...orphan, participant_ids: ['me', 'c'] }
+  const fixed = settle(billBalances(people, [shared]))
+  assert.deepEqual(fixed, [{ from_id: 'c', to_id: 'me', amount: 2000, paid: 0, remaining: 2000 }])
+}
+
+console.log('unsplit item trap OK')
+
+// 12. Personal totals across bills, and per trip.
+{
+  const people: SplitPerson[] = [
+    { id: 'me', name: 'Anuj', email: 'me@x.com' },
+    { id: 'c', name: 'Charchit', email: 'c@x.com' },
+  ]
+  const bill = (id: string, trip: string | null, amount: number, payer: string, payments: SplitPayment[] = []) =>
+    ({
+      id, user_id: 'u', title: id, bill_date: '2026-08-01', trip, people, payments, created_at: '',
+      items: [{ id: `${id}-i`, label: id, amount, payer_id: payer, mode: 'equal' as const, participant_ids: ['me', 'c'], exact: {} }],
+    })
+
+  // Goa: I owe 1000, already paid 400. Manali: Charchit owes me 500.
+  const goa = bill('goa1', 'Goa', 2000, 'c', [{ id: 'p', from_id: 'me', to_id: 'c', amount: 400, paid_on: '2026-08-02' }])
+  const manali = bill('man1', 'Manali', 1000, 'me')
+  const loose = bill('loose', null, 600, 'c')
+
+  const all = myTotalPosition([goa, manali, loose], 'ME@x.com')
+  assert.equal(all.share, 1000 + 500 + 300)  // my slice of every bill
+  assert.equal(all.remaining, 600 + 300)     // goa 1000-400, loose 300
+  assert.equal(all.toReceive, 500)           // manali
+  assert.equal(all.paid, 400)
+
+  // Per trip, the same helper over a filtered list.
+  const goaOnly = myTotalPosition([goa], 'me@x.com')
+  assert.equal(goaOnly.share, 1000)
+  assert.equal(goaOnly.remaining, 600)
+  assert.equal(goaOnly.toReceive, 0)
+
+  // Someone not on the bills has no position at all.
+  assert.deepEqual(myTotalPosition([goa, manali], 'stranger@x.com').share, 0)
+}
+
+console.log('trip + personal totals OK')

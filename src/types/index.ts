@@ -102,6 +102,7 @@ export interface SplitBill {
   user_id: string
   title: string
   bill_date: string
+  trip: string | null
   people: SplitPerson[]
   items: SplitItem[]
   payments: SplitPayment[]

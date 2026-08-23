@@ -7,6 +7,7 @@ import type { SplitBill, SplitPerson, SplitItem, SplitPayment } from '../types'
 export interface SplitBillInput {
   title: string
   bill_date: string
+  trip: string | null
   people: SplitPerson[]
   items: SplitItem[]
 }
@@ -27,7 +28,7 @@ export function useSplitBills() {
       .select('*')
       .order('bill_date', { ascending: false })
 
-    if (!error && data) setBills(data.map(b => ({ ...b, payments: b.payments ?? [] })))
+    if (!error && data) setBills(data.map(b => ({ ...b, payments: b.payments ?? [], trip: b.trip ?? null })))
     setLoading(false)
   }, [user])
 

@@ -14,6 +14,7 @@ interface SplitBill {
   user_id: string
   title: string
   bill_date: string
+  trip: string | null
   people: SplitPerson[]
 }
 interface Computed {
@@ -104,7 +105,9 @@ export function buildHtml(
 <html><body style="margin:0;padding:24px;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
   <div style="max-width:520px;margin:0 auto;background:#111113;border:1px solid #222;border-radius:16px;padding:24px">
     <p style="margin:0 0 4px;color:#8b5cf6;font-size:12px;letter-spacing:.08em;text-transform:uppercase">${invite ? 'You were added to a split' : 'Split bill'}</p>
-    <h1 style="margin:0 0 4px;color:#fff;font-size:22px">${esc(bill.title)}</h1>
+    <h1 style="margin:0 0 4px;color:#fff;font-size:22px">${esc(bill.title)}${
+      bill.trip ? ` <span style="color:#8b5cf6;font-size:15px;font-weight:500">· ${esc(bill.trip)}</span>` : ''
+    }</h1>
     <p style="margin:0 0 20px;color:#666;font-size:13px">
       ${bill.bill_date} · total ${formatINR(c.total)} · shared by ${esc(sender)}
     </p>

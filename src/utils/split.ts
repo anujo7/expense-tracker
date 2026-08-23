@@ -1,4 +1,4 @@
-import type { SplitItem, SplitPerson, SplitBalance, Settlement, SplitPayment } from '../types'
+import type { SplitItem, SplitPerson, SplitBalance, Settlement, SplitPayment, SplitBill } from '../types'
 
 // All math here is done in integer paise to avoid floating point drift, then
 // converted back to rupees at the edges.
@@ -143,4 +143,51 @@ export function findSelf(people: SplitPerson[], email?: string | null): SplitPer
   if (!email) return undefined
   const target = email.trim().toLowerCase()
   return people.find((p) => p.email?.trim().toLowerCase() === target)
+}
+
+export interface MyPosition {
+  share: number      // what this bill costs you
+  fronted: number    // what you paid out for the bill itself
+  owes: number       // your side of the settlements, before payments
+  paid: number       // settled so far
+  remaining: number  // still to pay
+  getsBack: number
+  received: number
+  toReceive: number  // still coming back to you
+}
+
+const ZERO: MyPosition = {
+  share: 0, fronted: 0, owes: 0, paid: 0, remaining: 0, getsBack: 0, received: 0, toReceive: 0,
+}
+
+// Your standing on one bill, or null when you are not on it.
+export function myBillPosition(bill: SplitBill, email?: string | null): MyPosition | null {
+  const self = findSelf(bill.people, email)
+  if (!self) return null
+
+  const balances = billBalances(bill.people, bill.items)
+  const mine = balances.find((b) => b.person_id === self.id)
+  return {
+    ...personPosition(settle(balances, bill.payments ?? []), self.id),
+    share: mine?.owed ?? 0,
+    fronted: mine?.paid ?? 0,
+  }
+}
+
+// Same, summed across bills — the whole list, or one trip's worth.
+export function myTotalPosition(bills: SplitBill[], email?: string | null): MyPosition {
+  return bills.reduce<MyPosition>((acc, bill) => {
+    const pos = myBillPosition(bill, email)
+    if (!pos) return acc
+    return {
+      share: acc.share + pos.share,
+      fronted: acc.fronted + pos.fronted,
+      owes: acc.owes + pos.owes,
+      paid: acc.paid + pos.paid,
+      remaining: acc.remaining + pos.remaining,
+      getsBack: acc.getsBack + pos.getsBack,
+      received: acc.received + pos.received,
+      toReceive: acc.toReceive + pos.toReceive,
+    }
+  }, ZERO)
 }

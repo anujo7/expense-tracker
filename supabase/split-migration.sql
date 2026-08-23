@@ -136,3 +136,11 @@ $$;
 
 revoke all on function public.search_app_users(text) from public, anon;
 grant execute on function public.search_app_users(text) to authenticated;
+
+-- ============================================
+-- Trips: a bill can carry a trip name so splits can be totalled per trip.
+-- Deliberately a text label, not a table: no second entity to create, own,
+-- delete or apply RLS to. Renaming a trip means editing its bills.
+-- ============================================
+alter table public.split_bills add column if not exists trip text;
+create index if not exists idx_split_bills_trip on public.split_bills(user_id, trip);
