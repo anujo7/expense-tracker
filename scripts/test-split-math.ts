@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { itemShares, billBalances, settle, personPosition, findSelf, myTotalPosition } from '../src/utils/split'
 import type { SplitPerson, SplitItem, SplitPayment } from '../src/types'
+import { appBaseUrl } from '../api/split-notify'
 
 // 1. Equal ₹100 among 3
 {
@@ -355,3 +356,17 @@ console.log('trip + personal totals OK')
 }
 
 console.log('settle-up correction OK')
+
+// 14. The email's app link: a bare host still has to come out clickable.
+{
+  const url = (env: Record<string, string | undefined>) => appBaseUrl(env)
+  assert.equal(url({ APP_URL: 'expense.example.com' }), 'https://expense.example.com')
+  assert.equal(url({ APP_URL: 'https://expense.example.com/' }), 'https://expense.example.com')
+  assert.equal(url({ APP_URL: 'http://localhost:5173' }), 'http://localhost:5173')
+  // APP_URL wins over the per-deployment Vercel host, which can be login-walled.
+  assert.equal(url({ APP_URL: 'https://a.com', VERCEL_URL: 'dep-xyz.vercel.app' }), 'https://a.com')
+  assert.equal(url({ VERCEL_URL: 'dep-xyz.vercel.app' }), 'https://dep-xyz.vercel.app')
+  assert.equal(url({}), '')  // no URL -> the button is left out entirely
+}
+
+console.log('email app link OK')

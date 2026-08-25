@@ -26,10 +26,18 @@ interface Computed {
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const appUrl =
-  process.env.APP_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+// Set APP_URL to the real domain. VERCEL_URL is the per-deployment host, which
+// answers with a login wall whenever deployment protection is on — hence last
+// resort. A bare host (no scheme) is not a link any mail client will open, so
+// the scheme is filled in here.
+export function appBaseUrl(env: Record<string, string | undefined>): string {
+  const raw = (env.APP_URL || env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL || '').trim()
+  if (!raw) return ''
+  return (/^https?:\/\//.test(raw) ? raw : `https://${raw}`).replace(/\/+$/, '')
+}
+
+const appUrl = appBaseUrl(process.env)
+const splitUrl = appUrl ? `${appUrl}/split` : ''
 
 function formatINR(amount: number): string {
   const abs = Math.abs(amount)
@@ -145,7 +153,7 @@ export function buildHtml(
                    : `Create an account with <strong style="color:#e5e5e5">${esc(person.email || '')}</strong> and this split shows up automatically — you can see what is left and tick off payments as you settle.`
                }
              </p>
-             <a href="${appUrl}" style="display:inline-block;background:#8b5cf6;color:#fff;font-size:14px;font-weight:600;padding:11px 26px;border-radius:10px;text-decoration:none">
+             <a href="${splitUrl}" style="display:inline-block;background:#8b5cf6;color:#fff;font-size:14px;font-weight:600;padding:11px 26px;border-radius:10px;text-decoration:none">
                ${hasAccount ? 'Open Expense Tracker' : 'Join Expense Tracker'}
              </a>
            </div>`
