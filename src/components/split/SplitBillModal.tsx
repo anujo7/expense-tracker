@@ -49,17 +49,27 @@ export function BillSummary({
   selfId?: string
 }) {
   const [payingKey, setPayingKey] = useState<string | null>(null)
+  const [editingPaid, setEditingPaid] = useState(false)
   const [payAmount, setPayAmount] = useState('')
   const balances = billBalances(people, items)
   const settlements = settle(balances, payments)
   const nameOf = (id: string) => (id === selfId ? 'You' : people.find(p => p.id === id)?.name || '—')
 
-  const submitPay = async (from: string, to: string, max: number) => {
-    const amount = Math.min(parseFloat(payAmount) || 0, max)
-    if (amount <= 0) return
-    await onPay?.(from, to, amount)
+  // Settling up posts the amount typed. Editing posts the *difference* against
+  // what was already paid, so a mistaken settle-up is undone with a negative
+  // payment — payments are append-only, corrections included.
+  const submitPay = async (from: string, to: string, max: number, current = 0) => {
+    const value = Math.max(0, Math.min(parseFloat(payAmount) || 0, max))
+    const delta = value - current
+    if (Math.abs(delta) >= 0.005) await onPay?.(from, to, delta)
     setPayingKey(null)
     setPayAmount('')
+  }
+
+  const openPay = (key: string, edit: boolean, prefill: number) => {
+    setPayingKey(key)
+    setEditingPaid(edit)
+    setPayAmount(prefill.toFixed(2))
   }
 
   return (
@@ -106,17 +116,27 @@ export function BillSummary({
                     {nameOf(s.from_id)} → {nameOf(s.to_id)}{' '}
                     <span className={done ? 'text-emerald-400' : 'text-white/70'}>{formatINR(s.amount)}</span>
                   </span>
-                  {onPay && !done && payingKey !== key && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPayingKey(key)
-                        setPayAmount(s.remaining.toFixed(2))
-                      }}
-                      className="shrink-0 text-xs text-violet-300 hover:text-violet-200"
-                    >
-                      Settle up
-                    </button>
+                  {onPay && payingKey !== key && (
+                    <span className="shrink-0 flex items-center gap-2">
+                      {!done && (
+                        <button
+                          type="button"
+                          onClick={() => openPay(key, false, s.remaining)}
+                          className="text-xs text-violet-300 hover:text-violet-200"
+                        >
+                          Settle up
+                        </button>
+                      )}
+                      {s.paid > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openPay(key, true, s.paid)}
+                          className="text-xs text-white/40 hover:text-white/80"
+                        >
+                          Edit paid
+                        </button>
+                      )}
+                    </span>
                   )}
                 </div>
                 {s.paid > 0 || done ? (
@@ -131,6 +151,9 @@ export function BillSummary({
                 ) : null}
                 {payingKey === key && (
                   <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-white/30">
+                      {editingPaid ? 'total paid' : 'paying'}
+                    </span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -141,14 +164,14 @@ export function BillSummary({
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault()
-                          submitPay(s.from_id, s.to_id, s.remaining)
+                          submitPay(s.from_id, s.to_id, editingPaid ? s.amount : s.remaining, editingPaid ? s.paid : 0)
                         }
                       }}
                       className="w-24 backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 py-1 text-xs text-white/90 focus:outline-none focus:border-violet-500/50"
                     />
                     <button
                       type="button"
-                      onClick={() => submitPay(s.from_id, s.to_id, s.remaining)}
+                      onClick={() => submitPay(s.from_id, s.to_id, editingPaid ? s.amount : s.remaining, editingPaid ? s.paid : 0)}
                       className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10"
                     >
                       <Check size={14} />

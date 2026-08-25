@@ -325,3 +325,33 @@ console.log('unsplit item trap OK')
 }
 
 console.log('trip + personal totals OK')
+
+// 13. Correcting a settle-up: a negative payment takes a mistaken one back.
+{
+  const people: SplitPerson[] = [
+    { id: 'me', name: 'Anuj' },
+    { id: 'c', name: 'Charchit' },
+  ]
+  const items: SplitItem[] = [
+    { id: 'i1', label: 'Dinner', amount: 1000, payer_id: 'c', mode: 'equal', participant_ids: ['me', 'c'], exact: {} },
+  ]
+  const balances = billBalances(people, items)
+  const pay = (amount: number, id: string): SplitPayment =>
+    ({ id, from_id: 'me', to_id: 'c', amount, paid_on: '2026-08-25' })
+
+  // Settled the whole 500 by mistake...
+  assert.deepEqual(settle(balances, [pay(500, 'p1')]),
+    [{ from_id: 'me', to_id: 'c', amount: 500, paid: 500, remaining: 0 }])
+
+  // ...corrected down to 200 (the UI posts the -300 delta).
+  assert.deepEqual(settle(balances, [pay(500, 'p1'), pay(-300, 'p2')]),
+    [{ from_id: 'me', to_id: 'c', amount: 500, paid: 200, remaining: 300 }])
+
+  // Corrected all the way back to nothing paid, and no further.
+  assert.deepEqual(settle(balances, [pay(500, 'p1'), pay(-500, 'p2')]),
+    [{ from_id: 'me', to_id: 'c', amount: 500, paid: 0, remaining: 500 }])
+  assert.deepEqual(settle(balances, [pay(500, 'p1'), pay(-900, 'p2')]),
+    [{ from_id: 'me', to_id: 'c', amount: 500, paid: 0, remaining: 500 }])
+}
+
+console.log('settle-up correction OK')

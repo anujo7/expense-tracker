@@ -100,7 +100,8 @@ export function settle(balances: SplitBalance[], payments: SplitPayment[] = []):
 
     if (amount >= 1) {
       const key = `${debtor.id}>${creditor.id}`
-      const paid = Math.min(settledPaise[key] || 0, amount)
+      // Clamped at 0: a correction can push the running total negative.
+      const paid = Math.max(0, Math.min(settledPaise[key] || 0, amount))
       settledPaise[key] = (settledPaise[key] || 0) - paid
       settlements.push({
         from_id: debtor.id,

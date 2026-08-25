@@ -180,7 +180,11 @@ export default async function handler(
   const computed: Computed | undefined = body.computed
   if (!billId) return res.status(400).json({ error: 'billId required' })
   if (!computed?.balances || !computed.settlements || !computed.items) {
-    return res.status(400).json({ error: 'computed split missing' })
+    // A cached PWA bundle from before the split was computed client-side. The
+    // client surfaces this string verbatim, so make it something actionable.
+    return res.status(409).json({
+      error: 'Your app is out of date — close and reopen it (or reload the page), then try again.',
+    })
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {
