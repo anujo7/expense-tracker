@@ -1,7 +1,7 @@
 // Framework-free correctness check for src/utils/split.ts money math.
 // Usage: npx tsx scripts/test-split-math.ts
 import assert from 'node:assert/strict'
-import { itemShares, billBalances, settle, personPosition, findSelf, myTotalPosition } from '../src/utils/split'
+import { itemShares, billBalances, settle, personPosition, findSelf, myTotalPosition, myPeopleTotals, paymentDelta } from '../src/utils/split'
 import type { SplitPerson, SplitItem, SplitPayment } from '../src/types'
 import { appBaseUrl } from '../api/split-notify'
 
@@ -323,6 +323,31 @@ console.log('unsplit item trap OK')
 
   // Someone not on the bills has no position at all.
   assert.deepEqual(myTotalPosition([goa, manali], 'stranger@x.com').share, 0)
+
+  // Per person, netted across every bill: 600 + 300 out, 500 back = I pay 400,
+  // with every open tab listed behind the total.
+  const [charchit] = myPeopleTotals([goa, manali, loose], 'ME@x.com')
+  assert.equal(charchit.net, -400)
+  assert.deepEqual(charchit.bills.map(b => [b.title, b.net]),
+    [['goa1', -600], ['man1', 500], ['loose', -300]])
+  // Each tab carries that bill's own ids, in the direction it is owed.
+  assert.deepEqual(charchit.bills.map(b => `${b.from_id}>${b.to_id}`),
+    ['me>c', 'c>me', 'me>c'])
+
+  // Settling all tabs (one payment per bill, as the UI posts them) clears them.
+  const settled = charchit.bills.map(b =>
+    bill(b.billId, null, b.billId === 'man1' ? 1000 : b.billId === 'goa1' ? 2000 : 600,
+      b.billId === 'man1' ? 'me' : 'c',
+      [...(b.billId === 'goa1' ? [{ id: 'p', from_id: 'me', to_id: 'c', amount: 400, paid_on: '2026-08-02' }] : []),
+       { id: `s-${b.billId}`, from_id: b.from_id, to_id: b.to_id, amount: Math.abs(b.net), paid_on: '2026-08-10' }]))
+  assert.deepEqual(myPeopleTotals(settled, 'me@x.com'), [])
+
+  // Two tabs that cancel out net to zero but stay listed — each bill is still
+  // unsettled on its own, so they are there to be settled.
+  const wash = myPeopleTotals([manali, bill('x', null, 1000, 'c')], 'me@x.com')
+  assert.equal(wash[0].net, 0)
+  assert.equal(wash[0].bills.length, 2)
+  assert.deepEqual(myPeopleTotals([goa], 'stranger@x.com'), [])
 }
 
 console.log('trip + personal totals OK')
@@ -370,3 +395,50 @@ console.log('settle-up correction OK')
 }
 
 console.log('email app link OK')
+
+// 15. The pay-input math: clamped both ends, posted as a delta off what stands.
+{
+  assert.equal(paymentDelta('200', 500), 200)
+  assert.equal(paymentDelta('900', 500), 500)   // never overpay the debt
+  assert.equal(paymentDelta('-50', 500), 0)     // never negative from the input
+  assert.equal(paymentDelta('abc', 500), 0)     // garbage reads as nothing typed
+  assert.equal(paymentDelta('', 500, 200), -200) // cleared = take it all back
+  assert.equal(paymentDelta('200', 500, 200), 0) // re-typing what stands is a no-op
+  assert.equal(paymentDelta('120', 500, 200), -80) // editing down posts the difference
+  assert.equal(paymentDelta('300', 500, 200), 100)
+}
+
+console.log('payment input math OK')
+
+// 16. Undo is append-only and commutes: reversing my settle-up leaves a payment
+// the other side made during the undo window exactly as it was.
+{
+  const people: SplitPerson[] = [
+    { id: 'me', name: 'Anuj' },
+    { id: 'c', name: 'Charchit' },
+  ]
+  const items: SplitItem[] = [
+    { id: 'i1', label: 'Dinner', amount: 1000, payer_id: 'c', mode: 'equal', participant_ids: ['me', 'c'], exact: {} },
+  ]
+  const balances = billBalances(people, items)
+  const pay = (amount: number, id: string): SplitPayment =>
+    ({ id, from_id: 'me', to_id: 'c', amount, paid_on: '2026-09-15' })
+
+  // I settle 500, they log 200 of their own, I undo my 500: only their 200 stands.
+  assert.deepEqual(
+    settle(balances, [pay(500, 'mine'), pay(200, 'theirs'), pay(-500, 'undo')]),
+    settle(balances, [pay(200, 'theirs')]),
+  )
+
+  // Order of arrival does not matter — the ledger is a sum, not a sequence.
+  assert.deepEqual(
+    settle(balances, [pay(500, 'mine'), pay(-500, 'undo'), pay(200, 'theirs')]),
+    settle(balances, [pay(200, 'theirs')]),
+  )
+
+  // Undoing with nothing else on the leg returns it to fully unpaid.
+  assert.deepEqual(settle(balances, [pay(500, 'mine'), pay(-500, 'undo')]),
+    [{ from_id: 'me', to_id: 'c', amount: 500, paid: 0, remaining: 500 }])
+}
+
+console.log('undo commutes OK')

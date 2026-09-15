@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { billTotal, billBalances, settle, itemShares } from '../utils/split'
+import { billTotal, billBalances, settle, itemShares, myPeopleTotals } from '../utils/split'
 import { useAuth } from './useAuth'
 import type { SplitBill, SplitPerson, SplitItem, SplitPayment } from '../types'
+
+export interface SettleResult {
+  title: string
+  bill?: SplitBill
+  payment?: SplitPayment
+  error: unknown
+}
 
 export interface SplitBillInput {
   title: string
@@ -18,9 +25,27 @@ export function useSplitBills() {
   const [bills, setBills] = useState<SplitBill[]>([])
   const [loading, setLoading] = useState(true)
 
+  // ponytail: last-good bills cached per user so the page paints before the
+  // network answers, then revalidates. Never expires — the fetch below always
+  // overwrites it; add a timestamp check if it ever outlives a schema change.
+  const seeded = useRef(false)
+
   const fetchBills = useCallback(async () => {
     if (!user) return
-    setLoading(true)
+    const cacheKey = `split-bills:${user.id}`
+
+    // Only on the very first load: a refetch must not flash stale bills back.
+    if (!seeded.current) {
+      seeded.current = true
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) {
+          setBills(JSON.parse(cached) as SplitBill[])
+          setLoading(false)
+        }
+      } catch { /* unreadable cache is not worth a failure */ }
+    }
+
     // No user_id filter: RLS returns bills you own *and* bills you're listed on
     // (matched on your email in people[]), so a shared trip shows up for everyone.
     const { data, error } = await supabase
@@ -28,7 +53,13 @@ export function useSplitBills() {
       .select('*')
       .order('bill_date', { ascending: false })
 
-    if (!error && data) setBills(data.map(b => ({ ...b, payments: b.payments ?? [], trip: b.trip ?? null })))
+    if (!error && data) {
+      const next = data.map(b => ({ ...b, payments: b.payments ?? [], trip: b.trip ?? null }))
+      setBills(next)
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(next))
+      } catch { /* quota or private mode: the app works without the cache */ }
+    }
     setLoading(false)
   }, [user])
 
@@ -78,16 +109,42 @@ export function useSplitBills() {
   // Appends in the database (see append_split_payment) rather than writing back
   // a locally-built array: two people settling at once must not overwrite each
   // other's payment.
+  // Returns the payment it posted, so it can be reversed later: undo appends
+  // the same payment negated (see settle(), which clamps the running total).
   const recordPayment = async (bill: SplitBill, payment: Omit<SplitPayment, 'id' | 'paid_on'>) => {
+    const posted: SplitPayment = {
+      ...payment,
+      id: crypto.randomUUID(),
+      paid_on: new Date().toISOString().slice(0, 10),
+    }
     const { data, error } = await supabase
-      .rpc('append_split_payment', {
-        bill_id: bill.id,
-        payment: { ...payment, id: crypto.randomUUID(), paid_on: new Date().toISOString().slice(0, 10) },
-      })
+      .rpc('append_split_payment', { bill_id: bill.id, payment: posted })
       .single<SplitBill>()
 
     if (!error && data) setBills(prev => prev.map(b => (b.id === bill.id ? data : b)))
-    return { error }
+    return { error, payment: error ? undefined : posted }
+  }
+
+  // Pay off every open tab with one person. The amounts are re-derived from the
+  // current bills at call time, never from a snapshot taken when the row was
+  // expanded — a realtime refetch in between would otherwise overpay.
+  const settleAll = async (personKey: string, email?: string | null) => {
+    const person = myPeopleTotals(bills, email).find(p => p.key === personKey)
+    if (!person) return { name: null, results: [] as SettleResult[] }
+
+    const results = await Promise.all(
+      person.bills.map(async (share): Promise<SettleResult> => {
+        const bill = bills.find(b => b.id === share.billId)
+        if (!bill) return { title: share.title, error: new Error('Bill missing') }
+        const { error, payment } = await recordPayment(bill, {
+          from_id: share.from_id,
+          to_id: share.to_id,
+          amount: Math.abs(share.net),
+        })
+        return { title: share.title, bill, error, payment }
+      })
+    )
+    return { name: person.name, results }
   }
 
   const postNotify = async (body: Record<string, unknown>) => {
@@ -145,5 +202,5 @@ export function useSplitBills() {
     return { error }
   }
 
-  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, notifyPeople, invitePerson, searchPeople, refetch: fetchBills }
+  return { bills, loading, addBill, updateBill, deleteBill, recordPayment, settleAll, notifyPeople, invitePerson, searchPeople, refetch: fetchBills }
 }

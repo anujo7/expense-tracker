@@ -6,7 +6,7 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { useSplitBills } from '../../hooks/useSplitBills'
 import { useAuth } from '../../hooks/useAuth'
-import { billTotal, billBalances, settle, itemShares, findSelf, personPosition } from '../../utils/split'
+import { billTotal, billBalances, settle, itemShares, findSelf, personPosition, paymentDelta } from '../../utils/split'
 import { formatINR } from '../../utils/format'
 import type { SplitBill, SplitPerson, SplitItem, SplitMode, SplitPayment } from '../../types'
 
@@ -59,8 +59,7 @@ export function BillSummary({
   // what was already paid, so a mistaken settle-up is undone with a negative
   // payment — payments are append-only, corrections included.
   const submitPay = async (from: string, to: string, max: number, current = 0) => {
-    const value = Math.max(0, Math.min(parseFloat(payAmount) || 0, max))
-    const delta = value - current
+    const delta = paymentDelta(payAmount, max, current)
     if (Math.abs(delta) >= 0.005) await onPay?.(from, to, delta)
     setPayingKey(null)
     setPayAmount('')

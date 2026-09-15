@@ -192,3 +192,67 @@ export function myTotalPosition(bills: SplitBill[], email?: string | null): MyPo
     }
   }, ZERO)
 }
+
+// What to append for a payment of `typed` against a debt of `max`, when
+// `already` has been paid: clamped into [0, max], then expressed as the delta
+// off what stands — so editing a settle-up down posts a negative correction.
+export function paymentDelta(typed: string, max: number, already = 0): number {
+  const value = Math.max(0, Math.min(parseFloat(typed) || 0, max))
+  return value - already
+}
+
+export interface PersonBillShare {
+  billId: string
+  title: string
+  trip: string | null
+  net: number      // signed like PersonTotal.net
+  from_id: string  // ids as they are in that bill, so a payment can be posted
+  to_id: string
+}
+
+export interface PersonTotal {
+  key: string
+  name: string
+  net: number  // > 0 they still owe you, < 0 you still owe them
+  bills: PersonBillShare[]
+}
+
+// What is still unsettled between you and each other person, across bills,
+// with the per-bill breakdown behind each total. People are keyed by email
+// (name when they have none) because person ids are only unique within a bill.
+export function myPeopleTotals(bills: SplitBill[], email?: string | null): PersonTotal[] {
+  const byPerson = new Map<string, { name: string; paise: number; bills: PersonBillShare[] }>()
+
+  for (const bill of bills) {
+    const self = findSelf(bill.people, email)
+    if (!self) continue
+
+    for (const s of settle(billBalances(bill.people, bill.items), bill.payments ?? [])) {
+      const theyOweMe = s.to_id === self.id
+      if (!theyOweMe && s.from_id !== self.id) continue
+      if (s.remaining < 0.005) continue
+
+      const other = bill.people.find((p) => p.id === (theyOweMe ? s.from_id : s.to_id))
+      if (!other) continue
+
+      const key = other.email?.trim().toLowerCase() || other.name.trim().toLowerCase()
+      const entry = byPerson.get(key) ?? { name: other.name, paise: 0, bills: [] }
+      const paise = Math.round(s.remaining * 100) * (theyOweMe ? 1 : -1)
+      entry.paise += paise
+      entry.bills.push({
+        billId: bill.id,
+        title: bill.title,
+        trip: bill.trip,
+        net: paise / 100,
+        from_id: s.from_id,
+        to_id: s.to_id,
+      })
+      byPerson.set(key, entry)
+    }
+  }
+
+  return [...byPerson]
+    .map(([key, v]) => ({ key, name: v.name, net: v.paise / 100, bills: v.bills }))
+    .filter((p) => p.bills.length > 0)
+    .sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
+}

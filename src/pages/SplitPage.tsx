@@ -1,15 +1,17 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Users, Pencil, Trash2, Send } from 'lucide-react'
+import { Plus, Users, Pencil, Trash2, Send, ChevronRight, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ListSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SplitBillModal, BillSummary } from '../components/split/SplitBillModal'
+import { fireSettleUndoToast, type SettledEntry } from '../components/split/SettleUndoToast'
 import { useSplitBills } from '../hooks/useSplitBills'
 import { useAuth } from '../hooks/useAuth'
-import { billTotal, findSelf, myBillPosition, myTotalPosition, type MyPosition } from '../utils/split'
+import { billTotal, findSelf, myBillPosition, myTotalPosition, myPeopleTotals, type MyPosition, type PersonTotal } from '../utils/split'
 import { formatINR, formatDate } from '../utils/format'
 import type { SplitBill } from '../types'
 
@@ -68,19 +70,96 @@ function PositionTotals({ pos, compact }: { pos: MyPosition; compact?: boolean }
   )
 }
 
+// What is left between you and each person, summed over every bill. Tap a
+// person to see which bills make up the total, and settle the lot in one go.
+function PeopleTotals({
+  people,
+  onSettleAll,
+}: {
+  people: PersonTotal[]
+  onSettleAll: (person: PersonTotal) => void
+}) {
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  if (people.length === 0) return null
+
+  return (
+    <div className="backdrop-blur-xl bg-white/[0.05] border border-white/[0.09] rounded-xl p-4 space-y-1">
+      <p className="text-xs font-medium text-white/40 mb-1">Person by person</p>
+      {people.map(p => {
+        const open = openKey === p.key
+        const square = Math.abs(p.net) < 0.005
+        return (
+          <div key={p.key}>
+            <div className="w-full flex items-baseline justify-between gap-2 text-sm py-1.5">
+              <span className="text-white/50 truncate flex items-baseline gap-1 min-w-0">
+                <button
+                  onClick={() => setOpenKey(open ? null : p.key)}
+                  aria-expanded={open}
+                  className="flex items-baseline gap-1 shrink-0 text-left hover:opacity-80 transition-opacity"
+                >
+                  <ChevronRight
+                    size={13}
+                    className={`shrink-0 self-center text-white/25 transition-transform ${open ? 'rotate-90' : ''}`}
+                  />
+                  {square ? 'Square with' : p.net < 0 ? 'You pay' : 'You collect from'}
+                </button>
+                <Link
+                  to={`/split/person/${encodeURIComponent(p.key)}`}
+                  className="font-medium text-white/90 truncate underline decoration-white/20 underline-offset-2 hover:decoration-white/60"
+                >
+                  {p.name}
+                </Link>
+              </span>
+              <span
+                className={`font-semibold shrink-0 ${square ? 'text-white/40' : p.net < 0 ? 'text-amber-400' : 'text-emerald-400'}`}
+              >
+                {square ? `${p.bills.length} open` : formatINR(Math.abs(p.net))}
+              </span>
+            </div>
+
+            {open && (
+              <div className="ml-[18px] mb-2 pl-3 border-l border-white/[0.08] space-y-1.5">
+                {p.bills.map(b => (
+                  <div key={b.billId} className="flex items-baseline justify-between gap-2 text-xs">
+                    <span className="text-white/40 truncate">
+                      {b.title}
+                      {b.trip && <span className="text-white/20"> · {b.trip}</span>}
+                    </span>
+                    <span className={`shrink-0 ${b.net < 0 ? 'text-amber-400/80' : 'text-emerald-400/80'}`}>
+                      {b.net < 0 ? '-' : '+'}
+                      {formatINR(Math.abs(b.net))}
+                    </span>
+                  </div>
+                ))}
+                <Button size="sm" variant="secondary" className="mt-1" onClick={() => onSettleAll(p)}>
+                  <Check size={13} />
+                  Settle all {p.bills.length === 1 ? 'of it' : `${p.bills.length} bills`}
+                </Button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function SplitPage() {
-  const { bills, loading, deleteBill, recordPayment, notifyPeople, refetch } = useSplitBills()
+  const { bills, loading, deleteBill, recordPayment, settleAll, notifyPeople, refetch } = useSplitBills()
   const { user } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBill, setEditingBill] = useState<SplitBill | null>(null)
   const [deletingBill, setDeletingBill] = useState<SplitBill | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [notifyingId, setNotifyingId] = useState<string | null>(null)
+  const [settlingPerson, setSettlingPerson] = useState<PersonTotal | null>(null)
+  const [settleLoading, setSettleLoading] = useState(false)
 
   const isOwner = (bill: SplitBill) => bill.user_id === user?.id
 
   const total = useMemo(() => bills.reduce((sum, b) => sum + billTotal(b.items), 0), [bills])
   const myTotal = useMemo(() => myTotalPosition(bills, user?.email), [bills, user?.email])
+  const peopleTotals = useMemo(() => myPeopleTotals(bills, user?.email), [bills, user?.email])
 
   // Bills grouped by trip, trips first (most recent bill wins the ordering),
   // loose bills last.
@@ -121,6 +200,23 @@ export function SplitPage() {
       toast.success('Bill deleted')
     }
     setDeletingBill(null)
+  }
+
+  // Amounts are re-derived inside settleAll from the live bills, so a realtime
+  // refetch between opening this dialog and confirming cannot overpay.
+  const handleSettleAll = async () => {
+    if (!settlingPerson) return
+    setSettleLoading(true)
+    const { name, results } = await settleAll(settlingPerson.key, user?.email)
+    setSettleLoading(false)
+    setSettlingPerson(null)
+
+    if (results.length === 0) return toast('Nothing left to settle')
+    const failed = results.filter(r => r.error)
+    if (failed.length) toast.error(`Could not settle: ${failed.map(r => r.title).join(', ')}`)
+
+    const done = results.filter(r => !r.error && r.bill && r.payment) as SettledEntry[]
+    fireSettleUndoToast(name ?? settlingPerson.name, done, recordPayment)
   }
 
   const handleNotify = async (bill: SplitBill) => {
@@ -171,6 +267,8 @@ export function SplitPage() {
         />
       ) : (
         <div className="space-y-6">
+          <PeopleTotals people={peopleTotals} onSettleAll={setSettlingPerson} />
+
           {groups.map(group => (
             <div key={group.trip || '__loose'} className="space-y-3">
               {(group.trip || groups.length > 1) && (
@@ -248,6 +346,19 @@ export function SplitPage() {
       )}
 
       <SplitBillModal isOpen={modalOpen} onClose={() => setModalOpen(false)} bill={editingBill} onSaved={refetch} />
+
+      <ConfirmDialog
+        isOpen={!!settlingPerson}
+        onClose={() => setSettlingPerson(null)}
+        onConfirm={handleSettleAll}
+        title="Settle up"
+        message={
+          settlingPerson
+            ? `Record full payment on ${settlingPerson.bills.length} ${settlingPerson.bills.length === 1 ? 'bill' : 'bills'} with ${settlingPerson.name}?`
+            : ''
+        }
+        loading={settleLoading}
+      />
 
       <ConfirmDialog
         isOpen={!!deletingBill}
