@@ -28,7 +28,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, loading, recovering } = useAuth()
 
   if (loading) {
     return (
@@ -38,7 +38,7 @@ function PublicRoute({ children }: { children: ReactNode }) {
     )
   }
 
-  if (user) return <Navigate to="/" replace />
+  if (user && !recovering) return <Navigate to="/" replace />
   return <>{children}</>
 }
 

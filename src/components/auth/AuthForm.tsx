@@ -15,7 +15,7 @@ declare global {
 const barHeights = [7, 12, 5, 14, 8, 10, 6, 16]
 
 export function AuthForm() {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, resetPassword, updatePassword, recovering } = useAuth()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -120,8 +120,32 @@ export function AuthForm() {
     }
   }, [])
 
+  const handleForgot = async () => {
+    if (!email) {
+      toast.error('Enter your email first')
+      return
+    }
+    setLoading(true)
+    const { error } = await resetPassword(email)
+    setLoading(false)
+    if (error) toast.error(error.message)
+    else toast.success('Check your email for a reset link.')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (recovering) {
+      if (password.length < 6) {
+        toast.error('Password must be at least 6 characters')
+        return
+      }
+      setLoading(true)
+      const { error } = await updatePassword(password)
+      setLoading(false)
+      if (error) toast.error(error.message)
+      else toast.success('Password updated!')
+      return
+    }
     if (!email || !password) {
       toast.error('Please fill in all fields')
       return
@@ -252,7 +276,7 @@ export function AuthForm() {
                 Expense Tracker
               </h2>
               <p className="text-sm text-white/30 mt-1">
-                {isSignUp ? 'Create your account' : 'Sign in to your account'}
+                {recovering ? 'Set a new password' : isSignUp ? 'Create your account' : 'Sign in to your account'}
               </p>
             </div>
 
@@ -263,29 +287,41 @@ export function AuthForm() {
               transition={{ delay: 0.15, duration: 0.5 }}
             >
               <form onSubmit={handleSubmit} className="space-y-4">
+                {!recovering && (
+                  <Input
+                    label="Email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                )}
                 <Input
-                  label="Email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-                <Input
-                  label="Password"
+                  label={recovering ? 'New Password' : 'Password'}
                   type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                  autoComplete={isSignUp || recovering ? 'new-password' : 'current-password'}
                 />
+                {!isSignUp && !recovering && (
+                  <button
+                    type="button"
+                    onClick={handleForgot}
+                    disabled={loading}
+                    className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                )}
                 <Button type="submit" loading={loading} className="w-full" size="lg">
-                  {isSignUp ? 'Create Account' : 'Sign In'}
+                  {recovering ? 'Update Password' : isSignUp ? 'Create Account' : 'Sign In'}
                 </Button>
               </form>
             </motion.div>
 
-            <p className="text-center text-sm text-white/30">
+            {!recovering && <p className="text-center text-sm text-white/30">
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
@@ -293,7 +329,7 @@ export function AuthForm() {
               >
                 {isSignUp ? 'Sign in' : 'Sign up'}
               </button>
-            </p>
+            </p>}
           </motion.div>
         </div>
       </div>
